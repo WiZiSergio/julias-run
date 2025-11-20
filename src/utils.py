@@ -547,7 +547,11 @@ def get_input_state(joysticks=None):
     """
     try:
         import pygame
-        from settings import JOYSTICK_DEADZONE, JOYSTICK_BUTTON_SHOOT, JOYSTICK_BUTTON_PAUSE, KEY_SPACE, KEY_P, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN
+        from settings import (
+            JOYSTICK_DEADZONE, JOYSTICK_BUTTON_SHOOT, JOYSTICK_BUTTON_PAUSE,
+            KEY_SPACE, KEY_P, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN,
+            KEY_W, KEY_A, KEY_S, KEY_D
+        )
     except Exception:
         # Si por alguna razón no se puede importar pygame/settings, devolver el estado de teclado normal
         import pygame
@@ -632,6 +636,19 @@ def get_input_state(joysticks=None):
             # Preguntar primero al teclado
             try:
                 if self.key_seq[key]:
+                    return True
+            except Exception:
+                pass
+
+            # Accept WASD as alternatives for arrow keys (keyboard support)
+            try:
+                if key == KEY_LEFT and self.key_seq[KEY_A]:
+                    return True
+                if key == KEY_RIGHT and self.key_seq[KEY_D]:
+                    return True
+                if key == KEY_UP and self.key_seq[KEY_W]:
+                    return True
+                if key == KEY_DOWN and self.key_seq[KEY_S]:
                     return True
             except Exception:
                 pass
