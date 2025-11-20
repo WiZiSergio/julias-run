@@ -33,9 +33,76 @@ import pygame
 
 # === CONFIGURACIÓN DE VENTANA ===
 # 🔍 Mejora sugerida: Estos valores podrían leerse de un archivo de configuración
-WINDOW_WIDTH = 800      # Ancho de la ventana en píxeles
-WINDOW_HEIGHT = 600     # Alto de la ventana en píxeles  
-FPS = 60               # Cuadros por segundo - ¡Prueba cambiar a 30 o 120!
+# Detectar automáticamente la resolución del monitor y ajustar la ventana
+# Estrategia (por orden):
+# 1. Windows via ctypes GetSystemMetrics (mejor para DPI en Windows)
+# 2. Tkinter (multiplataforma, si está disponible)
+# 3. pygame.display.Info() (si pygame puede inicializarse)
+# 4. Fallback a valores por defecto
+
+# Escala de ventana respecto a la resolución del monitor (para no tapar la barra)
+WINDOW_SCALE = 0.95
+
+def _detect_screen_size():
+	# 1) Windows via ctypes
+	try:
+		from ctypes import windll
+		user32 = windll.user32
+		# Intentar obtener la resolución real en pantallas con DPI scaling
+		try:
+			user32.SetProcessDPIAware()
+		except Exception:
+			pass
+		w = int(user32.GetSystemMetrics(0))
+		h = int(user32.GetSystemMetrics(1))
+		if w and h:
+			return w, h
+	except Exception:
+		pass
+
+	# 2) Tkinter
+	try:
+		import tkinter as tk
+		root = tk.Tk()
+		root.withdraw()
+		w = root.winfo_screenwidth()
+		h = root.winfo_screenheight()
+		root.destroy()
+		if w and h:
+			return int(w), int(h)
+	except Exception:
+		pass
+
+	# 3) pygame
+	try:
+		import pygame as _pygame
+		# Initialize display module temporarily if needed
+		if not _pygame.display.get_init():
+			_pygame.display.init()
+			_inited = True
+		else:
+			_inited = False
+		info = _pygame.display.Info()
+		w, h = info.current_w, info.current_h
+		if _inited:
+			try:
+				_pygame.display.quit()
+			except Exception:
+				pass
+		if w and h:
+			return int(w), int(h)
+	except Exception:
+		pass
+
+	# 4) Fallback
+	return 800, 600
+
+
+# Detect and scale
+_det_w, _det_h = _detect_screen_size()
+WINDOW_WIDTH = max(640, int(_det_w * WINDOW_SCALE))      # Ancho de la ventana en píxeles
+WINDOW_HEIGHT = max(480, int(_det_h * WINDOW_SCALE))     # Alto de la ventana en píxeles
+FPS = 120               # Cuadros por segundo - ¡Prueba cambiar a 30 o 120!
 
 # === COLORES (formato RGB) ===
 # 📚 Los colores se definen como tuplas de 3 valores (Red, Green, Blue)
@@ -104,6 +171,7 @@ SCORE_FILE = "best_score.json"    # Archivo donde se guarda el récord
 # === TECLAS DEL JUEGO ===
 # Estas constantes se usan para hacer el código más legible
 # En lugar de usar números mágicos, usamos nombres descriptivos
+# Constantes de teclas
 KEY_LEFT = pygame.K_LEFT
 KEY_RIGHT = pygame.K_RIGHT
 KEY_UP = pygame.K_UP
@@ -119,11 +187,22 @@ STATE_MENU = "menu"
 STATE_PLAYING = "playing"
 STATE_GAME_OVER = "game_over"
 STATE_PAUSED = "paused"  # ✅ IMPLEMENTADO: Estado de pausa
+STATE_CONFIRM_EXIT = "confirm_exit"  # Estado para confirmar salida
 
 # === CONFIGURACIÓN DE FUENTES ===
 FONT_SIZE_LARGE = 48   # Tamaño de fuente para títulos
 FONT_SIZE_MEDIUM = 24  # Tamaño de fuente para texto normal
 FONT_SIZE_SMALL = 16   # Tamaño de fuente para detalles
+
+# === CONFIGURACIÓN DE BOTONES / UI ===
+# Estética de los botones: radio, sombra, grosor del borde
+BUTTON_RADIUS = 8                  # Radio de las esquinas redondeadas
+BUTTON_SHADOW_COLOR = (30, 30, 30, 120)  # Sombra (RGBA), usaremos solo RGB al dibujar
+BUTTON_SHADOW_OFFSET = 4           # Offset de la sombra en píxeles
+BUTTON_BORDER_WIDTH = 2            # Ancho del borde del botón
+BUTTON_PADDING_X = 12              # Padding horizontal para el texto dentro del botón
+BUTTON_PADDING_Y = 6               # Padding vertical para el texto dentro del botón
+BUTTON_HOVER_COLOR = (255, 250, 140)  # Color de fondo al hacer hover/seleccionar (ligeramente más suave que YELLOW)
 
 # ✅ IMPLEMENTADO: Configuración para barra de cooldown
 COOLDOWN_BAR_WIDTH = 100   # Ancho de la barra de cooldown en píxeles
@@ -155,6 +234,17 @@ POWERUP_PULSE_SPEED = 4           # Velocidad del efecto de pulso en power-ups
 # SOUND_HIT = "assets/sounds/hit.wav"
 # SOUND_POWERUP = "assets/sounds/powerup.wav"
 
+# === RUTAS DE ASSETS PARA ICONOS DE CONTROLES ===
+# Carpeta donde poner iconos opcionales (PNG). Ejemplos de nombres esperados:
+# - assets/icons/controller_xbox.png
+# - assets/icons/controller_playstation.png
+# - assets/icons/controller_generic.png
+# - assets/icons/keyboard_arrows.png
+# - assets/icons/mouse.png
+INPUT_ICON_DIR = "assets/icons"
+# Tamaño por defecto para los iconos (píxeles)
+INPUT_ICON_SIZE = 48
+
 # === NOTAS EDUCATIVAS ===
 """
 ¿Por qué usar constantes?
@@ -172,3 +262,15 @@ Convenciones de nombres:
 - minúsculas_con_guiones_bajos para variables
 - CamelCase para nombres de clases
 """
+
+# === CONFIGURACIÓN DE JOYSTICK / GAMEPAD ===
+# Valores por defecto para soporte de gamepad/joystick
+JOYSTICK_DEADZONE = 0.3          # Zona muerta para ejes Analógicos
+JOYSTICK_BUTTON_SHOOT = 0        # Botón por defecto para disparo (A en muchos pads)
+JOYSTICK_BUTTON_PAUSE = 7        # Botón por defecto para pausa (Start / Options)
+
+# === OPCIONES DE RATÓN ===
+# Habilita control del jugador con el ratón (mover hacia la posición X del cursor)
+MOUSE_CONTROL_ENABLED = False
+# Distancia mínima para considerar que el ratón está a la izquierda/derecha
+MOUSE_MOVE_THRESHOLD = 8

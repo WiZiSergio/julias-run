@@ -20,6 +20,7 @@ Referencias útiles:
 
 import pygame
 from settings import *
+from utils import get_input_icon_surface, get_current_input
 
 class GameStateManager:
     """
@@ -82,6 +83,8 @@ class MenuState:
             state_manager: Referencia al gestor de estados
         """
         self.state_manager = state_manager
+        # 0 = Start, 1 = Exit
+        self.selection = 0
     
     def handle_events(self, events):
         """
@@ -90,12 +93,126 @@ class MenuState:
         Args:
             events: Lista de eventos de pygame
         """
+        # Ensure rects exist even if draw() hasn't been called yet this frame
+        if not hasattr(self, 'start_button_rect') or not hasattr(self, 'exit_button_rect'):
+            try:
+                self._compute_menu_button_rects()
+            except Exception:
+                pass
+
+        # Ensure restart/exit rects exist before handling mouse events
+        if not hasattr(self, 'restart_rect') or not hasattr(self, 'exit_rect'):
+            try:
+                self._compute_gameover_rects()
+            except Exception:
+                pass
+
+        # Ensure yes/no rects exist for mouse handling
+        if not hasattr(self, 'yes_rect') or not hasattr(self, 'no_rect'):
+            try:
+                self._compute_confirm_rects()
+            except Exception:
+                pass
+
         for event in events:
+            # Keyboard navigation
             if event.type == pygame.KEYDOWN:
-                if event.key == KEY_SPACE or event.key == KEY_ENTER:
-                    self.state_manager.change_state(STATE_PLAYING)
+                if event.key in (KEY_LEFT, pygame.K_a):
+                    self.selection = max(0, self.selection - 1)
+                elif event.key in (KEY_RIGHT, pygame.K_d):
+                    self.selection = min(1, self.selection + 1)
+                elif event.key == KEY_SPACE or event.key == KEY_ENTER:
+                    # Activate based on current selection
+                    if self.selection == 0:
+                        self.state_manager.change_state(STATE_PLAYING)
+                    else:
+                        self.state_manager.change_state(STATE_CONFIRM_EXIT)
+                        return True
                 elif event.key == KEY_ESCAPE:
-                    return False  # Señal para salir del juego
+                    # Abrir diálogo de confirmación antes de salir
+                    self.state_manager.change_state(STATE_CONFIRM_EXIT)
+                    return True
+
+            # Joystick navigation (hat/axes)
+            elif event.type == pygame.JOYHATMOTION:
+                try:
+                    hat_x, hat_y = event.value
+                    if hat_x < 0:
+                        self.selection = 0
+                    elif hat_x > 0:
+                        self.selection = 1
+                except Exception:
+                    pass
+            elif event.type == pygame.JOYAXISMOTION:
+                try:
+                    if event.axis == 0:
+                        if event.value < -JOYSTICK_DEADZONE:
+                            self.selection = 0
+                        elif event.value > JOYSTICK_DEADZONE:
+                            self.selection = 1
+                except Exception:
+                    pass
+
+            # Joystick buttons: A / primary to activate, Pause/Start to open confirm
+            elif event.type == pygame.JOYBUTTONDOWN:
+                try:
+                    button = event.button
+                except AttributeError:
+                    button = None
+
+                try:
+                    from settings import JOYSTICK_BUTTON_SHOOT, JOYSTICK_BUTTON_PAUSE
+                except Exception:
+                    JOYSTICK_BUTTON_SHOOT = None
+                    JOYSTICK_BUTTON_PAUSE = None
+
+                if button == JOYSTICK_BUTTON_SHOOT:
+                    # Activate current selection
+                    if self.selection == 0:
+                        self.state_manager.change_state(STATE_PLAYING)
+                    else:
+                        self.state_manager.change_state(STATE_CONFIRM_EXIT)
+                        return True
+                elif button == JOYSTICK_BUTTON_PAUSE:
+                    # Treat pause/options button as "open confirm exit" from menu
+                    self.state_manager.change_state(STATE_CONFIRM_EXIT)
+                    return True
+
+            # Mouse: hover changes selection, click activates
+            elif event.type == pygame.MOUSEMOTION:
+                try:
+                    pos = event.pos
+                except Exception:
+                    pos = pygame.mouse.get_pos()
+                # compute rects if missing
+                if not hasattr(self, 'start_button_rect') or not hasattr(self, 'exit_button_rect'):
+                    try:
+                        self._compute_menu_button_rects()
+                    except Exception:
+                        pass
+                if self.start_button_rect.collidepoint(pos):
+                    self.selection = 0
+                elif self.exit_button_rect.collidepoint(pos):
+                    self.selection = 1
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                try:
+                    pos = event.pos
+                except Exception:
+                    pos = pygame.mouse.get_pos()
+
+                # ensure rects
+                if not hasattr(self, 'start_button_rect') or not hasattr(self, 'exit_button_rect'):
+                    try:
+                        self._compute_menu_button_rects()
+                    except Exception:
+                        pass
+
+                if self.start_button_rect.collidepoint(pos):
+                    self.state_manager.change_state(STATE_PLAYING)
+                if self.exit_button_rect.collidepoint(pos):
+                    self.state_manager.change_state(STATE_CONFIRM_EXIT)
+                    return True
         
         return True  # Continuar ejecutando
     
@@ -124,27 +241,173 @@ class MenuState:
         subtitle_rect = subtitle_text.get_rect(center=(WINDOW_WIDTH//2, 200))
         screen.blit(subtitle_text, subtitle_rect)
         
-        # Instrucciones
-        instructions = [
-            "Controles:",
-            "Flechas → Mover",
-            "Espacio → Lanzar cuchillo",
-            "Esquiva obstáculos rojos",
-            "Recoge power-ups de colores",
-            "",
-            "Presiona ESPACIO para comenzar",
-            "ESC para salir"
+        # Modern instructions panel
+        panel_w = 560
+        panel_h = 160
+        panel_x = WINDOW_WIDTH // 2 - panel_w // 2
+        panel_y = 260
+
+        # Panel shadow
+        try:
+            panel_shadow = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            panel_shadow.fill(BUTTON_SHADOW_COLOR)
+            screen.blit(panel_shadow, (panel_x + BUTTON_SHADOW_OFFSET, panel_y + BUTTON_SHADOW_OFFSET))
+        except Exception:
+            pass
+
+        # Panel background (translucent white with rounded corners)
+        try:
+            panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            panel_surf.fill((250, 250, 250, 230))
+            screen.blit(panel_surf, (panel_x, panel_y))
+        except Exception:
+            pygame.draw.rect(screen, WHITE, pygame.Rect(panel_x, panel_y, panel_w, panel_h))
+
+        # Panel border
+        pygame.draw.rect(screen, BLACK, pygame.Rect(panel_x, panel_y, panel_w, panel_h), BUTTON_BORDER_WIDTH, BUTTON_RADIUS)
+
+        # Header
+        header = self.state_manager.font_medium.render("Controles", True, BLACK)
+        header_rect = header.get_rect(topleft=(panel_x + 20, panel_y + 12))
+        screen.blit(header, header_rect)
+
+        # Icon representing current input method (controller / keyboard / mouse)
+        try:
+            inp = get_current_input()
+            icon = get_input_icon_surface(inp.get('type'), inp.get('controller_name'), size=40)
+            if icon:
+                icon_x = panel_x + panel_w - 20 - icon.get_width()
+                icon_y = panel_y + 12
+                screen.blit(icon, (icon_x, icon_y))
+            else:
+                # Fallback: render small label indicating input
+                label = inp.get('type', 'teclado')
+                name_txt = self.state_manager.font_small.render(label.upper(), True, GRAY)
+                name_rect = name_txt.get_rect(topright=(panel_x + panel_w - 12, panel_y + 14))
+                screen.blit(name_txt, name_rect)
+        except Exception:
+            pass
+
+        # Modern bullet list of controls
+        controls = [
+            ("Flechas / A D", "Mover"),
+            ("Espacio", "Lanzar cuchillo"),
+            ("Esquiva", "Obstáculos rojos"),
+            ("Recoge", "Power-ups de colores"),
         ]
+
+        for idx, (left, right) in enumerate(controls):
+            y = panel_y + 50 + idx * 26
+            # small colored icon
+            icon_x = panel_x + 28
+            icon_y = y + 8
+            pygame.draw.circle(screen, PURPLE, (icon_x, icon_y), 6)
+
+            left_text = self.state_manager.font_small.render(left, True, BLACK)
+            right_text = self.state_manager.font_small.render(right, True, GRAY)
+
+            screen.blit(left_text, (icon_x + 16, y))
+            screen.blit(right_text, (panel_x + panel_w - 20 - right_text.get_width(), y))
+
+        # Set start_y for buttons below the panel
+        start_y = panel_y + panel_h + 20
+        # Ensure rects are computed for use by events
+        try:
+            self._compute_menu_button_rects(start_y=start_y)
+        except Exception:
+            pass
+        # Draw Start and Exit buttons below the panel
+        start_w, start_h = 300, 44
+        exit_w, exit_h = 160, 44
+        spacing = 28
+
+        total_w = start_w + spacing + exit_w
+        start_x = WINDOW_WIDTH // 2 - total_w // 2
+        exit_x = start_x + start_w + spacing
+
+        start_btn = pygame.Rect(start_x, start_y, start_w, start_h)
+        exit_btn = pygame.Rect(exit_x, start_y, exit_w, exit_h)
+
+        # Shadows
+        try:
+            s1 = pygame.Surface((start_w, start_h), pygame.SRCALPHA)
+            s1.fill(BUTTON_SHADOW_COLOR)
+            screen.blit(s1, (start_x + BUTTON_SHADOW_OFFSET, start_y + BUTTON_SHADOW_OFFSET))
+            s2 = pygame.Surface((exit_w, exit_h), pygame.SRCALPHA)
+            s2.fill(BUTTON_SHADOW_COLOR)
+            screen.blit(s2, (exit_x + BUTTON_SHADOW_OFFSET, start_y + BUTTON_SHADOW_OFFSET))
+        except Exception:
+            pass
+
+        # Backgrounds and borders
+        if getattr(self, 'selection', 0) == 0:
+            start_bg = BUTTON_HOVER_COLOR
+            start_text_color = BLACK
+            start_border = YELLOW
+        else:
+            start_bg = BLACK
+            start_text_color = WHITE
+            start_border = WHITE
+
+        if getattr(self, 'selection', 0) == 1:
+            exit_bg = BUTTON_HOVER_COLOR
+            exit_text_color = BLACK
+            exit_border = YELLOW
+        else:
+            exit_bg = BLACK
+            exit_text_color = WHITE
+            exit_border = WHITE
+
+        pygame.draw.rect(screen, start_bg, start_btn, 0, BUTTON_RADIUS)
+        pygame.draw.rect(screen, start_border, start_btn, BUTTON_BORDER_WIDTH, BUTTON_RADIUS)
+        pygame.draw.rect(screen, exit_bg, exit_btn, 0, BUTTON_RADIUS)
+        pygame.draw.rect(screen, exit_border, exit_btn, BUTTON_BORDER_WIDTH, BUTTON_RADIUS)
+
+        # Labels
+        start_label = self.state_manager.font_small.render("COMENZAR", True, start_text_color)
+        exit_label = self.state_manager.font_small.render("SALIR", True, exit_text_color)
+
+        screen.blit(start_label, start_label.get_rect(center=start_btn.center))
+        screen.blit(exit_label, exit_label.get_rect(center=exit_btn.center))
+
+        # Save rects for interaction
+        self.start_button_rect = start_btn
+        self.exit_button_rect = exit_btn
+
+        # Update selection from current mouse position (so hover works even without motion events)
+        try:
+            mpos = pygame.mouse.get_pos()
+            if self.start_button_rect.collidepoint(mpos):
+                self.selection = 0
+            elif self.exit_button_rect.collidepoint(mpos):
+                self.selection = 1
+        except Exception:
+            pass
+    def _compute_menu_button_rects(self, start_y=None):
+        """Compute and store menu button rects deterministically for event handling.
+
+        If start_y is provided it will use that vertical position; otherwise
+        it will recompute based on the same panel layout used in draw().
+        """
+        panel_w = 560
+        panel_h = 160
+        panel_x = WINDOW_WIDTH // 2 - panel_w // 2
+        panel_y = 260
+        if start_y is None:
+            start_y = panel_y + panel_h + 20
+
+        start_w, start_h = 300, 44
+        exit_w, exit_h = 160, 44
+        spacing = 28
+        total_w = start_w + spacing + exit_w
+        start_x = WINDOW_WIDTH // 2 - total_w // 2
+        exit_x = start_x + start_w + spacing
+
+        self.start_button_rect = pygame.Rect(start_x, start_y, start_w, start_h)
+        self.exit_button_rect = pygame.Rect(exit_x, start_y, exit_w, exit_h)
         
-        start_y = 280
-        for i, instruction in enumerate(instructions):
-            color = BLACK if instruction != "" else WHITE
-            text = self.state_manager.font_small.render(instruction, True, color)
-            text_rect = text.get_rect(center=(WINDOW_WIDTH//2, start_y + i * 25))
-            screen.blit(text, text_rect)
-        
-        # TODO 9: Añadir demo visual o animación de fondo
-        # self.draw_background_animation(screen)
+    # TODO 9: Añadir demo visual o animación de fondo
+    # self.draw_background_animation(screen)
 
 
 class PlayingState:
@@ -194,9 +457,33 @@ class PlayingState:
                     # ✅ IMPLEMENTADO: Implementar pausa
                     self.state_manager.change_state(STATE_PAUSED)
                     print("Juego pausado")  # Debug
-                
                 elif event.key == KEY_ESCAPE:
-                    return new_knives, False  # Salir del juego
+                    # No cerrar el juego al pulsar ESC durante la partida: abrir pausa
+                    self.state_manager.change_state(STATE_PAUSED)
+                    print("Juego pausado (ESC)")
+                    # Seguir ejecutando (no salir)
+                    
+            # Soporte de joystick: botones que emulan KEYDOWN
+            elif event.type == pygame.JOYBUTTONDOWN:
+                # Mapear botón de joystick a acciones
+                try:
+                    button = event.button
+                except AttributeError:
+                    button = None
+
+                # Disparar con el botón configurado
+                from settings import JOYSTICK_BUTTON_SHOOT, JOYSTICK_BUTTON_PAUSE
+                if button == JOYSTICK_BUTTON_SHOOT:
+                    if knife_cooldown.is_ready():
+                        from entities import Knife
+                        new_knife = Knife(player.rect)
+                        new_knives.append(new_knife)
+                        knife_cooldown.start_cooldown()
+
+                # Pausar con el botón configurado
+                if button == JOYSTICK_BUTTON_PAUSE:
+                    self.state_manager.change_state(STATE_PAUSED)
+                    print("Juego pausado (joystick)")
         
         return new_knives, True  # Continuar jugando
     
@@ -382,7 +669,47 @@ class GameOverState:
                 if event.key == KEY_ENTER:
                     self.state_manager.change_state(STATE_PLAYING)
                 elif event.key == KEY_ESCAPE:
-                    return False  # Salir del juego
+                    # No cerrar el juego desde Game Over con ESC: volver al menú
+                    self.state_manager.change_state(STATE_MENU)
+                    print("Volviendo al menú desde Game Over")
+                    # Continuar ejecutando
+            # Soporte de joystick: botones para reiniciar o volver al menú
+            elif event.type == pygame.JOYBUTTONDOWN:
+                try:
+                    button = event.button
+                except AttributeError:
+                    button = None
+
+                try:
+                    from settings import JOYSTICK_BUTTON_SHOOT, JOYSTICK_BUTTON_PAUSE
+                except Exception:
+                    JOYSTICK_BUTTON_SHOOT = None
+                    JOYSTICK_BUTTON_PAUSE = None
+
+                if button == JOYSTICK_BUTTON_SHOOT:
+                    self.state_manager.change_state(STATE_PLAYING)
+                elif button == JOYSTICK_BUTTON_PAUSE:
+                    self.state_manager.change_state(STATE_MENU)
+                    print("Volviendo al menú desde Game Over (joystick)")
+            # Soporte ratón: click en restart/exit
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                try:
+                    pos = event.pos
+                except Exception:
+                    pos = pygame.mouse.get_pos()
+
+                # compute rects if missing
+                if not hasattr(self, 'restart_rect') or not hasattr(self, 'exit_rect'):
+                    try:
+                        self._compute_gameover_rects()
+                    except Exception:
+                        pass
+
+                if self.restart_rect.collidepoint(pos):
+                    self.state_manager.change_state(STATE_PLAYING)
+                if self.exit_rect.collidepoint(pos):
+                    self.state_manager.change_state(STATE_MENU)
+                    print("Volviendo al menú desde Game Over (ratón)")
         
         return True
     
@@ -422,12 +749,57 @@ class GameOverState:
         
         # Instrucciones
         restart_text = self.state_manager.font_small.render("Presiona ENTER para jugar de nuevo", True, WHITE)
-        restart_rect = restart_text.get_rect(center=(WINDOW_WIDTH//2, 350))
-        screen.blit(restart_text, restart_rect)
-        
+        restart_text_rect = restart_text.get_rect(center=(WINDOW_WIDTH//2, 350))
+        restart_bg = restart_text_rect.inflate(20, 10)
+        try:
+            s = pygame.Surface((restart_bg.width, restart_bg.height), pygame.SRCALPHA)
+            s.fill(BUTTON_SHADOW_COLOR)
+            screen.blit(s, (restart_bg.x + BUTTON_SHADOW_OFFSET, restart_bg.y + BUTTON_SHADOW_OFFSET))
+        except Exception:
+            pass
+        pygame.draw.rect(screen, BLACK, restart_bg, 0, BUTTON_RADIUS)
+        pygame.draw.rect(screen, WHITE, restart_bg, BUTTON_BORDER_WIDTH, BUTTON_RADIUS)
+        screen.blit(restart_text, restart_text_rect)
+        self.restart_rect = restart_bg
+
         exit_text = self.state_manager.font_small.render("ESC para salir", True, WHITE)
-        exit_rect = exit_text.get_rect(center=(WINDOW_WIDTH//2, 380))
-        screen.blit(exit_text, exit_rect)
+        exit_text_rect = exit_text.get_rect(center=(WINDOW_WIDTH//2, 380))
+        exit_bg = exit_text_rect.inflate(20, 10)
+        try:
+            s2 = pygame.Surface((exit_bg.width, exit_bg.height), pygame.SRCALPHA)
+            s2.fill(BUTTON_SHADOW_COLOR)
+            screen.blit(s2, (exit_bg.x + BUTTON_SHADOW_OFFSET, exit_bg.y + BUTTON_SHADOW_OFFSET))
+        except Exception:
+            pass
+        pygame.draw.rect(screen, BLACK, exit_bg, 0, BUTTON_RADIUS)
+        pygame.draw.rect(screen, WHITE, exit_bg, BUTTON_BORDER_WIDTH, BUTTON_RADIUS)
+        screen.blit(exit_text, exit_text_rect)
+        self.exit_rect = exit_bg
+
+        # Update selection based on mouse position so hover highlights work immediately
+        try:
+            mpos = pygame.mouse.get_pos()
+            if self.restart_rect.collidepoint(mpos):
+                # treat restart as selection 0
+                pass
+            elif self.exit_rect.collidepoint(mpos):
+                # treat exit as selection 1
+                pass
+        except Exception:
+            pass
+
+    def _compute_gameover_rects(self):
+        """Compute restart and exit rects deterministically for GameOverState."""
+        restart_text = self.state_manager.font_small.render("Presiona ENTER para jugar de nuevo", True, WHITE)
+        restart_text_rect = restart_text.get_rect(center=(WINDOW_WIDTH//2, 350))
+        restart_bg = restart_text_rect.inflate(20, 10)
+
+        exit_text = self.state_manager.font_small.render("ESC para salir", True, WHITE)
+        exit_text_rect = exit_text.get_rect(center=(WINDOW_WIDTH//2, 380))
+        exit_bg = exit_text_rect.inflate(20, 10)
+
+        self.restart_rect = restart_bg
+        self.exit_rect = exit_bg
 
 
 # ✅ IMPLEMENTADO: Estado de pausa
@@ -445,6 +817,9 @@ class PausedState:
         
         # ✅ IMPLEMENTADO: Efecto visual de pausa
         self.pulse_timer = 0  # Para efecto de pulso en el texto "PAUSED"
+        # Opciones del menú de pausa: 0=Reanudar, 1=Volver al menú, 2=Salir
+        self.options = ["Reanudar", "Volver al menú", "Salir"]
+        self.selection = 0
     
     def handle_events(self, events):
         """
@@ -453,16 +828,135 @@ class PausedState:
         Args:
             events: Lista de eventos de pygame
         """
+        # Ensure option rects exist so mouse events work even if draw() hasn't run
+        if not hasattr(self, 'option_rects') or not self.option_rects:
+            try:
+                self._compute_pause_option_rects()
+            except Exception:
+                self.option_rects = []
+
         for event in events:
+            # Teclado: navegación y selección
             if event.type == pygame.KEYDOWN:
-                if event.key == KEY_P:
-                    # Reanudar el juego
+                # Navegar opciones con flechas o W/S
+                if event.key in (KEY_UP, pygame.K_w):
+                    self.selection = (self.selection - 1) % len(self.options)
+                elif event.key in (KEY_DOWN, pygame.K_s):
+                    self.selection = (self.selection + 1) % len(self.options)
+                # Confirmar selección
+                elif event.key in (KEY_ENTER, KEY_SPACE):
+                    if self.selection == 0:  # Reanudar
+                        self.state_manager.change_state(STATE_PLAYING)
+                        print("Juego reanudado")
+                    elif self.selection == 1:  # Volver al menú
+                        self.state_manager.change_state(STATE_MENU)
+                        print("Volviendo al menú desde pausa")
+                    elif self.selection == 2:  # Salir -> abrir confirmación
+                        self.state_manager.change_state(STATE_CONFIRM_EXIT)
+                        print("Abrir confirmación de salida")
+                # Atajos para reanudar o volver al menú
+                elif event.key == KEY_P:
                     self.state_manager.change_state(STATE_PLAYING)
-                    print("Juego reanudado")  # Debug
+                    print("Juego reanudado (P)")
                 elif event.key == KEY_ESCAPE:
-                    # Volver al menú principal
                     self.state_manager.change_state(STATE_MENU)
-                    print("Volviendo al menú desde pausa")  # Debug
+                    print("Volviendo al menú desde pausa (ESC)")
+
+            # Soporte de ratón: click en opciones
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                try:
+                    pos = event.pos
+                except Exception:
+                    pos = pygame.mouse.get_pos()
+
+                # Ensure option rects exist
+                if not hasattr(self, 'option_rects') or not self.option_rects:
+                    try:
+                        self._compute_pause_option_rects()
+                    except Exception:
+                        self.option_rects = []
+
+                for idx, r in enumerate(self.option_rects):
+                    if r.collidepoint(pos):
+                        self.selection = idx
+                        # Ejecutar acción equivalente a ENTER
+                        if self.selection == 0:
+                            self.state_manager.change_state(STATE_PLAYING)
+                            print("Juego reanudado (ratón)")
+                        elif self.selection == 1:
+                            self.state_manager.change_state(STATE_MENU)
+                            print("Volviendo al menú desde pausa (ratón)")
+                        elif self.selection == 2:
+                            self.state_manager.change_state(STATE_CONFIRM_EXIT)
+                            print("Abrir confirmación de salida (ratón)")
+                        break
+
+            # Mouse move: hover updates selection
+            elif event.type == pygame.MOUSEMOTION:
+                try:
+                    pos = event.pos
+                except Exception:
+                    pos = pygame.mouse.get_pos()
+                if not hasattr(self, 'option_rects') or not self.option_rects:
+                    try:
+                        self._compute_pause_option_rects()
+                    except Exception:
+                        self.option_rects = []
+                for idx, r in enumerate(self.option_rects):
+                    if r.collidepoint(pos):
+                        self.selection = idx
+                        break
+
+            # Joystick/gamepad: navegar y confirmar
+            elif event.type == pygame.JOYHATMOTION:
+                try:
+                    hat_x, hat_y = event.value
+                    # horizontal hat: left / right map to selection index changes
+                    if hat_x < 0:
+                        self.selection = (self.selection - 1) % len(self.options)
+                    elif hat_x > 0:
+                        self.selection = (self.selection + 1) % len(self.options)
+                except Exception:
+                    pass
+
+            elif event.type == pygame.JOYAXISMOTION:
+                try:
+                    if event.axis == 0:
+                        if event.value < -JOYSTICK_DEADZONE:
+                            self.selection = (self.selection - 1) % len(self.options)
+                        elif event.value > JOYSTICK_DEADZONE:
+                            self.selection = (self.selection + 1) % len(self.options)
+                except Exception:
+                    pass
+
+            elif event.type == pygame.JOYBUTTONDOWN:
+                try:
+                    button = event.button
+                except AttributeError:
+                    button = None
+
+                try:
+                    from settings import JOYSTICK_BUTTON_PAUSE, JOYSTICK_BUTTON_SHOOT
+                except Exception:
+                    JOYSTICK_BUTTON_PAUSE = None
+                    JOYSTICK_BUTTON_SHOOT = None
+
+                # Botón A / principal confirma la opción seleccionada
+                if button == JOYSTICK_BUTTON_SHOOT:
+                    if self.selection == 0:
+                        self.state_manager.change_state(STATE_PLAYING)
+                        print("Juego reanudado (joystick)")
+                    elif self.selection == 1:
+                        self.state_manager.change_state(STATE_MENU)
+                        print("Volviendo al menú desde pausa (joystick)")
+                    elif self.selection == 2:
+                        self.state_manager.change_state(STATE_CONFIRM_EXIT)
+                        print("Abrir confirmación de salida (joystick)")
+                # Botón de pausa actúa como cancelar/volver al menú
+                elif button == JOYSTICK_BUTTON_PAUSE:
+                    self.state_manager.change_state(STATE_MENU)
+                    print("Volviendo al menú desde pausa (joystick pause)")
+
         return True
     
     def update(self):
@@ -500,7 +994,7 @@ class PausedState:
         except:
             pulse_font = self.state_manager.font_large
         
-        paused_text = pulse_font.render("PAUSED", True, YELLOW)
+        paused_text = pulse_font.render("PAUSA", True, YELLOW)
         paused_rect = paused_text.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 - 50))
         
         # Sombra del texto para mejor legibilidad
@@ -509,25 +1003,274 @@ class PausedState:
         screen.blit(shadow_text, shadow_rect)
         screen.blit(paused_text, paused_rect)
         
-        # Instrucciones
-        instructions = [
-            "Presiona P para continuar",
-            "ESC para volver al menú"
-        ]
-        
-        y_offset = WINDOW_HEIGHT//2 + 20
-        for instruction in instructions:
-            text = self.state_manager.font_medium.render(instruction, True, WHITE)
-            text_rect = text.get_rect(center=(WINDOW_WIDTH//2, y_offset))
-            
-            # Fondo semi-transparente para las instrucciones
-            bg_rect = pygame.Rect(text_rect.x - 10, text_rect.y - 5,
-                                text_rect.width + 20, text_rect.height + 10)
-            pygame.draw.rect(screen, BLACK, bg_rect)
-            pygame.draw.rect(screen, WHITE, bg_rect, 1)
-            
+        # Opciones del menú de pausa (Reanudar / Volver al menú / Salir)
+        opt_y = WINDOW_HEIGHT//2 + 20
+        total_opts = len(self.options)
+        opt_spacing = 220
+        # Guardar rects para interacción con ratón
+        self.option_rects = []
+
+        for idx, option in enumerate(self.options):
+            is_selected = (idx == self.selection)
+            # Use high-contrast text: black on hover (yellow bg) or white on dark bg
+            text_color = BLACK if is_selected else WHITE
+            text = self.state_manager.font_medium.render(option, True, text_color)
+            text_rect = text.get_rect(center=(WINDOW_WIDTH//2 - opt_spacing + idx * opt_spacing, opt_y))
+
+            # Fondo para cada opción (con sombra y esquinas redondeadas)
+            bg_rect = pygame.Rect(text_rect.x - 12, text_rect.y - 6,
+                                  text_rect.width + 24, text_rect.height + 12)
+            try:
+                shadow_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+                shadow_s.fill(BUTTON_SHADOW_COLOR)
+                screen.blit(shadow_s, (bg_rect.x + BUTTON_SHADOW_OFFSET, bg_rect.y + BUTTON_SHADOW_OFFSET))
+            except Exception:
+                pass
+
+            bg_color = BUTTON_HOVER_COLOR if is_selected else BLACK
+            border_c = YELLOW if is_selected else WHITE
+            pygame.draw.rect(screen, bg_color, bg_rect, 0, BUTTON_RADIUS)
+            pygame.draw.rect(screen, border_c, bg_rect, BUTTON_BORDER_WIDTH, BUTTON_RADIUS)
+
             screen.blit(text, text_rect)
-            y_offset += 40
+            self.option_rects.append(bg_rect)
+
+        # Update selection from current mouse position so hover highlights even when mouse is still
+        try:
+            mpos = pygame.mouse.get_pos()
+            for idx, r in enumerate(self.option_rects):
+                if r.collidepoint(mpos):
+                    self.selection = idx
+                    break
+        except Exception:
+            pass
+
+    def _compute_pause_option_rects(self):
+        """Compute and store pause menu option rects deterministically.
+
+        This mirrors the positions used in draw() so event handlers can use
+        the same rects before the screen has been drawn.
+        """
+        opt_y = WINDOW_HEIGHT//2 + 20
+        opt_spacing = 220
+        self.option_rects = []
+        for idx, option in enumerate(self.options):
+            text = self.state_manager.font_medium.render(option, True, WHITE)
+            text_rect = text.get_rect(center=(WINDOW_WIDTH//2 - opt_spacing + idx * opt_spacing, opt_y))
+            bg_rect = pygame.Rect(text_rect.x - 12, text_rect.y - 6,
+                                  text_rect.width + 24, text_rect.height + 12)
+            self.option_rects.append(bg_rect)
+
+
+class ConfirmExitState:
+    """
+    Estado que muestra un diálogo para confirmar salida del juego.
+    """
+
+    def __init__(self, state_manager):
+        self.state_manager = state_manager
+        # 0 = Sí (salir), 1 = No (volver al menú)
+        self.selection = 0
+
+    def handle_events(self, events):
+        """Maneja eventos del diálogo de confirmación.
+
+        Devuelve False para indicar que el juego debe terminar.
+        Devuelve True para continuar la ejecución.
+        """
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                # Navegación con flechas
+                if event.key == KEY_LEFT:
+                    self.selection = max(0, self.selection - 1)
+                elif event.key == KEY_RIGHT:
+                    self.selection = min(1, self.selection + 1)
+                # Confirmar con ENTER
+                elif event.key == KEY_ENTER:
+                    if self.selection == 0:
+                        return False
+                    else:
+                        self.state_manager.change_state(STATE_MENU)
+                        return True
+                # ESC cancela (volver al menú)
+                elif event.key == KEY_ESCAPE:
+                    self.state_manager.change_state(STATE_MENU)
+                    return True
+                # Atajos: Y/N
+                elif event.key == pygame.K_y:
+                    return False
+                elif event.key == pygame.K_n:
+                    self.state_manager.change_state(STATE_MENU)
+                    return True
+
+            # Joystick hat/axis: change selection
+            elif event.type == pygame.JOYHATMOTION:
+                try:
+                    hat_x, hat_y = event.value
+                    if hat_x < 0:
+                        self.selection = max(0, self.selection - 1)
+                    elif hat_x > 0:
+                        self.selection = min(1, self.selection + 1)
+                except Exception:
+                    pass
+
+            elif event.type == pygame.JOYAXISMOTION:
+                try:
+                    if event.axis == 0:
+                        if event.value < -JOYSTICK_DEADZONE:
+                            self.selection = max(0, self.selection - 1)
+                        elif event.value > JOYSTICK_DEADZONE:
+                            self.selection = min(1, self.selection + 1)
+                except Exception:
+                    pass
+
+            # Mouse click: SÍ / NO
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                try:
+                    pos = event.pos
+                except Exception:
+                    pos = pygame.mouse.get_pos()
+
+                # Ensure rects
+                if not hasattr(self, 'yes_rect') or not hasattr(self, 'no_rect'):
+                    try:
+                        self._compute_confirm_rects()
+                    except Exception:
+                        pass
+
+                # Click en SÍ / NO
+                if self.yes_rect.collidepoint(pos):
+                    return False
+                if self.no_rect.collidepoint(pos):
+                    self.state_manager.change_state(STATE_MENU)
+                    return True
+
+            elif event.type == pygame.JOYBUTTONDOWN:
+                try:
+                    button = event.button
+                except AttributeError:
+                    button = None
+
+                try:
+                    from settings import JOYSTICK_BUTTON_SHOOT, JOYSTICK_BUTTON_PAUSE
+                except Exception:
+                    JOYSTICK_BUTTON_SHOOT = None
+                    JOYSTICK_BUTTON_PAUSE = None
+
+                # Botón principal confirma salida (A)
+                if button == JOYSTICK_BUTTON_SHOOT:
+                    return False
+                # Botón de pausa / cancelar vuelve al menú
+                if button == JOYSTICK_BUTTON_PAUSE:
+                    self.state_manager.change_state(STATE_MENU)
+                    return True
+
+        return True
+
+    def draw(self, screen):
+        """Dibuja el diálogo de confirmación en el centro de la pantalla."""
+        # Fondo oscuro semi-transparente
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        overlay.fill((0, 0, 0))
+        overlay.set_alpha(160)
+        screen.blit(overlay, (0, 0))
+
+        # Dimensiones del diálogo
+        w, h = 480, 200
+        x = WINDOW_WIDTH // 2 - w // 2
+        y = WINDOW_HEIGHT // 2 - h // 2
+
+        # Caja del diálogo
+        dialog_rect = pygame.Rect(x, y, w, h)
+        # Sombra del diálogo
+        try:
+            shadow = pygame.Surface((w, h), pygame.SRCALPHA)
+            shadow.fill(BUTTON_SHADOW_COLOR)
+            screen.blit(shadow, (x + BUTTON_SHADOW_OFFSET, y + BUTTON_SHADOW_OFFSET))
+        except Exception:
+            pass
+        # Caja con esquinas redondeadas
+        pygame.draw.rect(screen, WHITE, dialog_rect, 0, BUTTON_RADIUS)
+        inner = dialog_rect.inflate(-8, -8)
+        pygame.draw.rect(screen, BLACK, inner, 0, BUTTON_RADIUS)
+
+        # Texto principal
+        title = self.state_manager.font_large.render("¿Deseas salir?", True, YELLOW)
+        title_rect = title.get_rect(center=(WINDOW_WIDTH//2, y + 50))
+        screen.blit(title, title_rect)
+
+        # Opciones Sí / No
+        opt_yes = self.state_manager.font_medium.render("SÍ", True, BLACK if self.selection == 0 else GRAY)
+        opt_no = self.state_manager.font_medium.render("NO", True, BLACK if self.selection == 1 else GRAY)
+
+        # Posicionar opciones
+        opt_y = y + 130
+        opt_spacing = 120
+        yes_text_rect = opt_yes.get_rect(center=(WINDOW_WIDTH//2 - opt_spacing, opt_y))
+        no_text_rect = opt_no.get_rect(center=(WINDOW_WIDTH//2 + opt_spacing, opt_y))
+
+        # Backgrounds para botones SÍ / NO
+        yes_bg = yes_text_rect.inflate(20, 10)
+        no_bg = no_text_rect.inflate(20, 10)
+
+        # Sombras
+        try:
+            s_yes = pygame.Surface((yes_bg.width, yes_bg.height), pygame.SRCALPHA)
+            s_yes.fill(BUTTON_SHADOW_COLOR)
+            screen.blit(s_yes, (yes_bg.x + BUTTON_SHADOW_OFFSET, yes_bg.y + BUTTON_SHADOW_OFFSET))
+            s_no = pygame.Surface((no_bg.width, no_bg.height), pygame.SRCALPHA)
+            s_no.fill(BUTTON_SHADOW_COLOR)
+            screen.blit(s_no, (no_bg.x + BUTTON_SHADOW_OFFSET, no_bg.y + BUTTON_SHADOW_OFFSET))
+        except Exception:
+            pass
+
+        # Colores según selección
+        yes_bg_color = BUTTON_HOVER_COLOR if self.selection == 0 else BLACK
+        no_bg_color = BUTTON_HOVER_COLOR if self.selection == 1 else BLACK
+        yes_border = YELLOW if self.selection == 0 else WHITE
+        no_border = YELLOW if self.selection == 1 else WHITE
+
+        pygame.draw.rect(screen, yes_bg_color, yes_bg, 0, BUTTON_RADIUS)
+        pygame.draw.rect(screen, yes_border, yes_bg, BUTTON_BORDER_WIDTH, BUTTON_RADIUS)
+        pygame.draw.rect(screen, no_bg_color, no_bg, 0, BUTTON_RADIUS)
+        pygame.draw.rect(screen, no_border, no_bg, BUTTON_BORDER_WIDTH, BUTTON_RADIUS)
+
+        screen.blit(opt_yes, yes_text_rect)
+        screen.blit(opt_no, no_text_rect)
+        # Guardar rects para interacción con ratón
+        self.yes_rect = yes_bg
+        self.no_rect = no_bg
+
+        # Update selection from mouse position for immediate hover feedback
+        try:
+            mpos = pygame.mouse.get_pos()
+            if self.yes_rect.collidepoint(mpos):
+                self.selection = 0
+            elif self.no_rect.collidepoint(mpos):
+                self.selection = 1
+        except Exception:
+            pass
+
+        # Instrucciones
+        instr = self.state_manager.font_small.render("ENTER = confirmar · ESC = cancelar", True, WHITE)
+        instr_rect = instr.get_rect(center=(WINDOW_WIDTH//2, y + h - 20))
+        screen.blit(instr, instr_rect)
+
+    def _compute_confirm_rects(self):
+        """Compute yes/no rects deterministically for ConfirmExitState."""
+        w, h = 480, 200
+        x = WINDOW_WIDTH // 2 - w // 2
+        y = WINDOW_HEIGHT // 2 - h // 2
+        opt_yes = self.state_manager.font_medium.render("SÍ", True, WHITE)
+        opt_no = self.state_manager.font_medium.render("NO", True, WHITE)
+        opt_y = y + 130
+        opt_spacing = 120
+        yes_text_rect = opt_yes.get_rect(center=(WINDOW_WIDTH//2 - opt_spacing, opt_y))
+        no_text_rect = opt_no.get_rect(center=(WINDOW_WIDTH//2 + opt_spacing, opt_y))
+        yes_bg = yes_text_rect.inflate(20, 10)
+        no_bg = no_text_rect.inflate(20, 10)
+        self.yes_rect = yes_bg
+        self.no_rect = no_bg
 
 
 # TODO 1: Estado de pausa

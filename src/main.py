@@ -42,12 +42,13 @@ import random
 from settings import *
 from entities import Player, Obstacle, Knife, PowerUp, Enemy, Explosion, ScreenEffect
 from abilities import CooldownTimer, PowerUpEffect, ParticleEffect, ComboSystem
-from game_states import GameStateManager, MenuState, PlayingState, GameOverState, PausedState
+from game_states import GameStateManager, MenuState, PlayingState, GameOverState, PausedState, ConfirmExitState
 from utils import (
     load_best_score, save_best_score, should_spawn_obstacle, 
     should_spawn_powerup, get_random_powerup_type, get_difficulty_multiplier,
     debug_print, update_play_statistics, get_fps_color
 )
+from utils import get_input_state
 
 class JuliasRunGame:
     """
@@ -65,8 +66,42 @@ class JuliasRunGame:
     def __init__(self):
         """Inicializa el juego y todos sus sistemas."""
         
-        # Inicializar Pygame
+    # Inicializar Pygame
         pygame.init()
+        # Inicializar soporte para joysticks/gamepads (si hay)
+        pygame.joystick.init()
+        self._refresh_joysticks()
+
+        # Track current input method for UI (keyboard / mouse / controller)
+        # This value is updated each frame in handle_events() and used by UI to
+        # show the corresponding icon.
+        self.current_input = 'keyboard'
+        self.current_controller_name = None
+
+        # Configuración de control por ratón (puede togglearse con 'M')
+        try:
+            from settings import MOUSE_CONTROL_ENABLED
+            self.mouse_control_enabled = MOUSE_CONTROL_ENABLED
+        except Exception:
+            self.mouse_control_enabled = False
+
+    def _refresh_joysticks(self):
+        """(Re)inicializa la lista de joysticks conectados."""
+        try:
+            self.joysticks = []
+            for i in range(pygame.joystick.get_count()):
+                try:
+                    joy = pygame.joystick.Joystick(i)
+                    joy.init()
+                    self.joysticks.append(joy)
+                except Exception:
+                    pass
+            if self.joysticks:
+                print(f"Joystick(s) detectado(s): {len(self.joysticks)}")
+            else:
+                print("No se detectaron joysticks.")
+        except Exception:
+            self.joysticks = []
         
         # Crear la ventana del juego
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -81,6 +116,7 @@ class JuliasRunGame:
         self.playing_state = PlayingState(self.state_manager)
         self.game_over_state = GameOverState(self.state_manager)
         self.paused_state = PausedState(self.state_manager)  # ✅ IMPLEMENTADO
+        self.confirm_exit_state = ConfirmExitState(self.state_manager)
         
         # Variables del juego
         self.running = True
@@ -145,6 +181,40 @@ class JuliasRunGame:
         
         # Obtener todos los eventos de esta frame
         events = pygame.event.get()
+
+        # Detectar el método de entrada predominante en este frame
+        # Prioridad: controller > mouse > keyboard
+        input_source = None
+        controller_name = None
+        for event in events:
+            if event.type in (pygame.JOYAXISMOTION, pygame.JOYHATMOTION,
+                              pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP,
+                              pygame.JOYDEVICEADDED, pygame.JOYDEVICEREMOVED):
+                input_source = 'controller'
+                # try to read first joystick name
+                try:
+                    if hasattr(self, 'joysticks') and self.joysticks:
+                        controller_name = self.joysticks[0].get_name()
+                except Exception:
+                    controller_name = None
+                break
+            elif event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+                if input_source is None:
+                    input_source = 'mouse'
+            elif event.type in (pygame.KEYDOWN, pygame.KEYUP):
+                if input_source is None:
+                    input_source = 'keyboard'
+
+        if input_source:
+            try:
+                # Import here to avoid circular import at module load time
+                from utils import set_current_input
+                set_current_input(input_source, controller_name)
+                self.current_input = input_source
+                self.current_controller_name = controller_name
+            except Exception:
+                # Failure to set current input should not break the event loop
+                pass
         
         # Revisar eventos especiales (cerrar ventana)
         for event in events:
@@ -159,11 +229,31 @@ class JuliasRunGame:
                 elif event.key == pygame.K_F2:
                     self.show_fps = not self.show_fps
                     print(f"Mostrar FPS: {'ON' if self.show_fps else 'OFF'}")
+                elif event.key == pygame.K_m:
+                    # Toggle control por ratón
+                    self.mouse_control_enabled = not getattr(self, 'mouse_control_enabled', False)
+                    print(f"Control por ratón: {'ON' if self.mouse_control_enabled else 'OFF'}")
                 elif event.key == pygame.K_F3 and self.debug_mode:
                     # Cheat: añadir puntos para testing
                     if hasattr(self, 'player'):
                         self.player.score += 50
                         print("Cheat: +50 puntos añadidos")
+            # Manejar conexión/desconexión de joysticks (hotplug)
+            elif event.type == pygame.JOYDEVICEADDED:
+                # Releer joysticks conectados
+                try:
+                    self._refresh_joysticks()
+                    print("Joystick conectado - lista actualizada")
+                except Exception:
+                    pass
+
+            elif event.type == pygame.JOYDEVICEREMOVED:
+                try:
+                    # Releer joysticks (el sistema puede reportar el dispositivo removido)
+                    self._refresh_joysticks()
+                    print("Joystick desconectado - lista actualizada")
+                except Exception:
+                    pass
         
         # Delegar el manejo de eventos al estado actual
         current_state = self.state_manager.get_current_state()
@@ -185,6 +275,9 @@ class JuliasRunGame:
         
         elif current_state == STATE_GAME_OVER:
             return self.game_over_state.handle_events(events)
+        
+        elif current_state == STATE_CONFIRM_EXIT:
+            return self.confirm_exit_state.handle_events(events)
         
         return True
     
@@ -272,8 +365,36 @@ class JuliasRunGame:
         self.screen_effects.update()
         
         # Mover jugador según teclas presionadas
-        keys = pygame.key.get_pressed()
+        # Usar entrada combinada teclado + joystick
+        keys = get_input_state(self.joysticks)
         self.player.move(keys)
+
+        # Control por ratón (opcional): mover suavemente hacia la X del cursor
+        try:
+            from settings import MOUSE_MOVE_THRESHOLD
+        except Exception:
+            MOUSE_MOVE_THRESHOLD = 8
+
+        if getattr(self, 'mouse_control_enabled', False):
+            try:
+                mouse_buttons = pygame.mouse.get_pressed()
+                mouse_x, _ = pygame.mouse.get_pos()
+                # Si el botón izquierdo está presionado, mover hacia el cursor
+                if mouse_buttons[0]:
+                    # Mover con paso limitado por self.player.speed
+                    diff = mouse_x - self.player.rect.centerx
+                    if abs(diff) > MOUSE_MOVE_THRESHOLD:
+                        step = self.player.speed if diff > 0 else -self.player.speed
+                        self.player.rect.x += step
+                    else:
+                        # Align directly when close
+                        self.player.rect.centerx = mouse_x
+
+                    # Asegurar que el jugador no salga de la pantalla
+                    self.player.rect.left = max(0, self.player.rect.left)
+                    self.player.rect.right = min(WINDOW_WIDTH, self.player.rect.right)
+            except Exception:
+                pass
         
         # ✅ IMPLEMENTADO: Actualizar obstáculos normales
         for obstacle in self.obstacles[:]:
@@ -481,6 +602,9 @@ class JuliasRunGame:
         
         elif current_state == STATE_GAME_OVER:
             self.game_over_state.draw(self.screen)
+        
+        elif current_state == STATE_CONFIRM_EXIT:
+            self.confirm_exit_state.draw(self.screen)
         
         # ✅ IMPLEMENTADO: Dibujar información de debug si está activa
         if self.debug_mode:

@@ -530,6 +530,224 @@ def get_fps_color(fps):
         return RED      # Rendimiento muy bajo
 
 
+def get_input_state(joysticks=None):
+    """
+    Devuelve un objeto combinando el estado del teclado y (opcionalmente)
+    el primer joystick conectado para que el código pueda consultar
+    entradas de la misma forma que con `pygame.key.get_pressed()`.
+
+    Args:
+        joysticks (list): Lista de objetos pygame.joystick.Joystick (opcional)
+
+    Returns:
+        object: Un objeto con __getitem__(key) que devuelve True/False
+                para las teclas consultadas (ej. state[KEY_LEFT])
+
+    Nota: Usa las constantes de `settings.py` para deadzone y mapeos.
+    """
+    try:
+        import pygame
+        from settings import JOYSTICK_DEADZONE, JOYSTICK_BUTTON_SHOOT, JOYSTICK_BUTTON_PAUSE, KEY_SPACE, KEY_P, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN
+    except Exception:
+        # Si por alguna razón no se puede importar pygame/settings, devolver el estado de teclado normal
+        import pygame
+        keys = pygame.key.get_pressed()
+        return keys
+
+    key_seq = pygame.key.get_pressed()
+
+    class CombinedInput:
+        def __init__(self, key_seq, joysticks):
+            self.key_seq = key_seq
+            self.joysticks = joysticks or []
+
+        def _joy_axis_pressed(self):
+            # Leer primer joystick disponible
+            if not self.joysticks:
+                return {'left': False, 'right': False, 'up': False, 'down': False}
+
+            joy = self.joysticks[0]
+            # Intentar leer ejes analógicos (stick izquierdo normalmente eje 0/1)
+            try:
+                ax0 = joy.get_axis(0)
+            except Exception:
+                ax0 = 0.0
+            try:
+                ax1 = joy.get_axis(1)
+            except Exception:
+                ax1 = 0.0
+
+            # Algunos mandos exponen un hat (D-pad) en lugar de ejes
+            hat_x = 0
+            hat_y = 0
+            try:
+                if hasattr(joy, 'get_numhats') and joy.get_numhats() > 0:
+                    hat_x, hat_y = joy.get_hat(0)
+            except Exception:
+                hat_x, hat_y = 0, 0
+
+            # Considerar tanto ejes como hat; note que hat y ejes pueden tener orientaciones distintas
+            left = (ax0 < -JOYSTICK_DEADZONE) or (hat_x < 0)
+            right = (ax0 > JOYSTICK_DEADZONE) or (hat_x > 0)
+            up = (ax1 < -JOYSTICK_DEADZONE) or (hat_y > 0)
+            down = (ax1 > JOYSTICK_DEADZONE) or (hat_y < 0)
+
+            return {'left': left, 'right': right, 'up': up, 'down': down}
+
+        def _joy_button(self, button_index):
+            if not self.joysticks:
+                return False
+            try:
+                joy = self.joysticks[0]
+                # Determinar cantidad de botones de forma robusta
+                btn_count = 0
+                try:
+                    btn_count = joy.get_numbuttons()
+                except Exception:
+                    try:
+                        btn_count = joy.get_button_count()
+                    except Exception:
+                        btn_count = 0
+
+                # Si el índice configurado existe, leerlo directamente
+                if button_index is not None and 0 <= button_index < btn_count:
+                    try:
+                        return bool(joy.get_button(button_index))
+                    except Exception:
+                        pass
+
+                # Fallback: probar botones comunes (0..4) — compatibilidad con Xbox/PS/genérico
+                for cand in (0, 1, 2, 3, 4):
+                    try:
+                        if cand < btn_count and joy.get_button(cand):
+                            return True
+                    except Exception:
+                        continue
+
+                return False
+            except Exception:
+                return False
+
+        def __getitem__(self, key):
+            # Preguntar primero al teclado
+            try:
+                if self.key_seq[key]:
+                    return True
+            except Exception:
+                pass
+
+            # Mapear teclas conocidas a ejes/botones del joystick
+            axes = self._joy_axis_pressed()
+
+            if key == KEY_LEFT:
+                return axes['left']
+            if key == KEY_RIGHT:
+                return axes['right']
+            if key == KEY_UP:
+                return axes['up']
+            if key == KEY_DOWN:
+                return axes['down']
+
+            if key == KEY_SPACE:
+                return self._joy_button(JOYSTICK_BUTTON_SHOOT)
+
+            if key == KEY_P:
+                return self._joy_button(JOYSTICK_BUTTON_PAUSE)
+
+            # Por defecto, False para cualquier otra tecla
+            return False
+
+    return CombinedInput(key_seq, joysticks)
+
+
+# ====== Input source tracking and icon helper ======
+# These helpers allow the main loop to report which input method
+# the player is using (keyboard / mouse / controller) and to
+# obtain a small icon Surface for UI display.
+
+# Cached current input info
+_CURRENT_INPUT = {'type': 'keyboard', 'controller_name': None}
+
+def set_current_input(input_type, controller_name=None):
+    """Set the current input source.
+
+    input_type: 'keyboard' | 'mouse' | 'controller'
+    controller_name: optional string with the controller name
+    """
+    global _CURRENT_INPUT
+    _CURRENT_INPUT['type'] = input_type
+    _CURRENT_INPUT['controller_name'] = controller_name
+
+def get_current_input():
+    """Return a copy of the current input info."""
+    return dict(_CURRENT_INPUT)
+
+
+_ICON_CACHE = {}
+
+def get_input_icon_surface(input_type, controller_name=None, size=None):
+    """Return a pygame.Surface for the given input type if an icon file exists.
+
+    Searches in `INPUT_ICON_DIR` for a matching image. Returns None if no image
+    available. Caches loaded icons.
+    """
+    try:
+        import pygame
+    except Exception:
+        return None
+
+    if size is None:
+        try:
+            size = INPUT_ICON_SIZE
+        except Exception:
+            size = 48
+
+    key = (input_type, (controller_name or '').lower(), size)
+    if key in _ICON_CACHE:
+        return _ICON_CACHE[key]
+
+    candidates = []
+    if input_type == 'controller':
+        name = (controller_name or '').lower()
+        # try to guess vendor
+        if 'xbox' in name:
+            candidates.append('controller_xbox.png')
+        if 'play' in name or 'ps' in name or 'dualshock' in name or 'dualsense' in name:
+            candidates.append('controller_playstation.png')
+        if 'switch' in name:
+            candidates.append('controller_switch.png')
+        # generic fallback
+        candidates.append('controller_generic.png')
+    elif input_type == 'keyboard':
+        candidates.extend(['keyboard_arrows.png', 'keyboard.png'])
+    elif input_type == 'mouse':
+        candidates.append('mouse.png')
+    else:
+        # Unknown input type: try generic controller then keyboard
+        candidates.extend(['controller_generic.png', 'keyboard_arrows.png', 'mouse.png'])
+
+    # Build full paths and try loading
+    for fname in candidates:
+        path = os.path.join(INPUT_ICON_DIR, fname)
+        if os.path.exists(path):
+            try:
+                surf = pygame.image.load(path).convert_alpha()
+                # Scale to desired size while preserving aspect
+                w = surf.get_width()
+                h = surf.get_height()
+                if w != size or h != size:
+                    surf = pygame.transform.smoothscale(surf, (size, size))
+                _ICON_CACHE[key] = surf
+                return surf
+            except Exception as e:
+                print(f"Error cargando icono {path}: {e}")
+                continue
+
+    # Not found
+    _ICON_CACHE[key] = None
+    return None
+
+
 # TODO 5: Funciones para gestión de sprites
 # def load_sprite(filename, scale=1.0):
 #     """Carga y escala un sprite."""

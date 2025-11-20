@@ -17,7 +17,20 @@ DOCS_DIR = docs
 run: ## 🎮 Ejecutar el juego directamente (sin venv)
 	@echo "🚀 Iniciando Julia's Run..."
 	@echo "💡 Presiona ESC para salir del juego"
+	@rem Ejecutar como script para mantener imports relativos actuales
 	$(PYTHON) $(SRC_DIR)/main.py
+
+.PHONY: run-with-joy-check
+run-with-joy-check: ## 🔎 Mostrar información de joysticks antes de ejecutar el juego
+	@echo "🔎 Ejecutando comprobación de joysticks..."
+	$(MAKE) list-controllers
+	@echo "🔁 Lanzando juego..."
+	$(MAKE) run
+
+.PHONY: list-controllers
+list-controllers: ## 🧰 Ejecutar la herramienta de diagnóstico para mandos (muestra ambos APIs)
+	@echo "🔍 Ejecutando tools/list_controllers.py"
+	$(PYTHON) tools/list_controllers.py
 
 .PHONY: install
 install: ## 📦 Instalar dependencias necesarias
