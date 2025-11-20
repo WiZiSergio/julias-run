@@ -103,6 +103,13 @@ class JuliasRunGame:
         except Exception:
             self.joysticks = []
         
+        # Create default icons if they're missing (safe: pygame initialized)
+        try:
+            from utils import ensure_default_input_icons
+            ensure_default_input_icons()
+        except Exception:
+            pass
+
         # Crear la ventana del juego
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Julia's Run - ¡Esquiva y Sobrevive!")

@@ -19,8 +19,8 @@ Referencias útiles:
 """
 
 import pygame
+import os
 from settings import *
-from utils import get_input_icon_surface, get_current_input
 
 class GameStateManager:
     """
@@ -231,13 +231,41 @@ class MenuState:
         # Limpiar pantalla con color de fondo
         screen.fill(LIGHT_BLUE)
         
-        # Título del juego
-        title_text = self.state_manager.font_large.render("Julia's Run", True, BLACK)
+        # Título del juego con sombra y pulso sutil
+        try:
+            # Small pulsing scale based on time for a subtle effect
+            pulse = (pygame.time.get_ticks() % 1200) / 1200.0
+            scale = 1.0 + 0.02 * (1.0 - abs(0.5 - pulse) * 2.0)
+            font_size = max(24, int(FONT_SIZE_LARGE * scale))
+
+            # Prefer user-provided Friday13 font if available
+            friday_path = os.path.join('assets', 'fonts', 'friday13.ttf')
+            if os.path.exists(friday_path):
+                try:
+                    title_font = pygame.font.Font(friday_path, font_size)
+                except Exception:
+                    title_font = pygame.font.Font(None, font_size)
+            else:
+                # Fallback to default system font
+                title_font = pygame.font.Font(None, font_size)
+        except Exception:
+            title_font = self.state_manager.font_large
+
+        try:
+            title_color = BLOOD_RED
+        except Exception:
+            title_color = WHITE
+
+        title_text = title_font.render("Julia's Run", True, title_color)
         title_rect = title_text.get_rect(center=(WINDOW_WIDTH//2, 150))
+        # Draw a soft shadow under the title for contrast
+        shadow = title_font.render("Julia s Run", True, BLACK)
+        shadow_rect = shadow.get_rect(center=(title_rect.centerx + 3, title_rect.centery + 3))
+        screen.blit(shadow, shadow_rect)
         screen.blit(title_text, title_rect)
-        
-        # Subtítulo
-        subtitle_text = self.state_manager.font_medium.render("🏃‍♀️🔪 Aventura Épica", True, PURPLE)
+
+        # Subtítulo sin emojis problemáticos, con mejor contraste
+        subtitle_text = self.state_manager.font_medium.render("Aventura Épica", True, PURPLE)
         subtitle_rect = subtitle_text.get_rect(center=(WINDOW_WIDTH//2, 200))
         screen.blit(subtitle_text, subtitle_rect)
         
@@ -271,22 +299,7 @@ class MenuState:
         header_rect = header.get_rect(topleft=(panel_x + 20, panel_y + 12))
         screen.blit(header, header_rect)
 
-        # Icon representing current input method (controller / keyboard / mouse)
-        try:
-            inp = get_current_input()
-            icon = get_input_icon_surface(inp.get('type'), inp.get('controller_name'), size=40)
-            if icon:
-                icon_x = panel_x + panel_w - 20 - icon.get_width()
-                icon_y = panel_y + 12
-                screen.blit(icon, (icon_x, icon_y))
-            else:
-                # Fallback: render small label indicating input
-                label = inp.get('type', 'teclado')
-                name_txt = self.state_manager.font_small.render(label.upper(), True, GRAY)
-                name_rect = name_txt.get_rect(topright=(panel_x + panel_w - 12, panel_y + 14))
-                screen.blit(name_txt, name_rect)
-        except Exception:
-            pass
+        # (Icon moved to HUD bottom-left; remove local panel icon to avoid duplication)
 
         # Modern bullet list of controls
         controls = [

@@ -117,6 +117,8 @@ YELLOW = (255, 255, 0)     # Rojo + Verde = Amarillo
 GRAY = (128, 128, 128)     # Valor medio de todos
 LIGHT_BLUE = (173, 216, 230) # Combinación personalizada
 PURPLE = (128, 0, 128)
+# Color sangriento para títulos/estética (rojo más oscuro)
+BLOOD_RED = (170, 10, 20)
 
 # === CONFIGURACIÓN DEL JUGADOR ===
 PLAYER_WIDTH = 40      # Ancho del sprite del jugador

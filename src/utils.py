@@ -727,25 +727,108 @@ def get_input_icon_surface(input_type, controller_name=None, size=None):
         candidates.extend(['controller_generic.png', 'keyboard_arrows.png', 'mouse.png'])
 
     # Build full paths and try loading
+    # If no candidate files exist yet, try to generate default icons
+    any_exist = any(os.path.exists(os.path.join(INPUT_ICON_DIR, f)) for f in candidates)
+    if not any_exist:
+        try:
+            ensure_default_input_icons(size=size)
+            any_exist = any(os.path.exists(os.path.join(INPUT_ICON_DIR, f)) for f in candidates)
+        except Exception:
+            any_exist = False
+
     for fname in candidates:
         path = os.path.join(INPUT_ICON_DIR, fname)
         if os.path.exists(path):
             try:
-                surf = pygame.image.load(path).convert_alpha()
+                surf = pygame.image.load(path)
+                # convert_alpha() may require a display; try safely
+                try:
+                    surf = surf.convert_alpha()
+                except Exception:
+                    try:
+                        surf = surf.convert()
+                    except Exception:
+                        pass
+
                 # Scale to desired size while preserving aspect
                 w = surf.get_width()
                 h = surf.get_height()
                 if w != size or h != size:
-                    surf = pygame.transform.smoothscale(surf, (size, size))
+                    try:
+                        surf = pygame.transform.smoothscale(surf, (size, size))
+                    except Exception:
+                        surf = pygame.transform.scale(surf, (size, size))
+
                 _ICON_CACHE[key] = surf
                 return surf
             except Exception as e:
-                print(f"Error cargando icono {path}: {e}")
+                # Don't spam errors; store None and continue
+                print(f"Warning: error cargando icono {path}: {e}")
                 continue
 
     # Not found
     _ICON_CACHE[key] = None
     return None
+
+
+def ensure_default_input_icons(size=None):
+    """Ensure there are default icon PNGs in INPUT_ICON_DIR.
+
+    This function will create simple placeholder PNGs using pygame
+    (requires pygame to be initialized). It will skip files that
+    already exist so it is safe to call every run.
+    """
+    try:
+        import pygame
+        import os
+        if size is None:
+            try:
+                size = INPUT_ICON_SIZE
+            except Exception:
+                size = 48
+
+        os.makedirs(INPUT_ICON_DIR, exist_ok=True)
+
+        pygame.font.init()
+        font = pygame.font.Font(None, int(size * 0.55))
+
+        icons = {
+            'controller_xbox.png': ('X', (10, 150, 10)),
+            'controller_playstation.png': ('PS', (10, 10, 160)),
+            'controller_generic.png': ('G', (100, 100, 100)),
+            'keyboard_arrows.png': ('↔', (40, 40, 40)),
+            'mouse.png': ('🖱', (40, 40, 40)),
+        }
+
+        for fname, (label, color) in icons.items():
+            path = os.path.join(INPUT_ICON_DIR, fname)
+            if os.path.exists(path):
+                continue
+
+            surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            # background rounded box
+            try:
+                pygame.draw.rect(surf, (250, 250, 250), surf.get_rect(), 0, border_radius=8)
+                pygame.draw.rect(surf, (200, 200, 200), surf.get_rect(), 2, border_radius=8)
+            except Exception:
+                surf.fill((240, 240, 240))
+
+            try:
+                txt = font.render(label, True, color)
+            except Exception:
+                # Fallback to ASCII letter
+                txt = font.render(label.encode('ascii', 'ignore').decode('ascii'), True, color)
+
+            tr = txt.get_rect(center=surf.get_rect().center)
+            surf.blit(txt, tr)
+
+            try:
+                pygame.image.save(surf, path)
+            except Exception as e:
+                print(f"Warning: could not save default icon {path}: {e}")
+    except Exception as e:
+        # If pygame isn't available or something goes wrong, just skip
+        print(f"ensure_default_input_icons skipped: {e}")
 
 
 # TODO 5: Funciones para gestión de sprites
