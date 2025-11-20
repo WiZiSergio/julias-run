@@ -41,6 +41,7 @@ import random
 # Importar nuestros módulos
 from settings import *
 from entities import Player, Obstacle, Knife, PowerUp, Enemy, Explosion, ScreenEffect
+from mi_enemigo import EnemigoEspecial
 from abilities import CooldownTimer, PowerUpEffect, ParticleEffect, ComboSystem
 from game_states import GameStateManager, MenuState, PlayingState, GameOverState, PausedState, ConfirmExitState
 from utils import (
@@ -328,9 +329,16 @@ class JuliasRunGame:
             enemy_spawn_rate = max(300, 600 - int(self.current_difficulty * 50))
             if self.enemy_spawn_timer >= enemy_spawn_rate:
                 if len(self.enemies) < 2:  # Máximo 2 enemigos a la vez
-                    new_enemy = Enemy(self.player.rect.centerx, self.current_difficulty)
+                    # Elegir entre enemigo estándar o EnemigoEspecial
+                    if random.random() < 0.35:
+                        # Spawn de enemigo especial (más raro)
+                        new_enemy = EnemigoEspecial(self.player.rect.centerx, self.current_difficulty)
+                        debug_print("¡Enemigo especial aparecido!", debug_mode=self.debug_mode)
+                    else:
+                        new_enemy = Enemy(self.player.rect.centerx, self.current_difficulty)
+                        debug_print("¡Enemigo aparecido!", debug_mode=self.debug_mode)
+
                     self.enemies.append(new_enemy)
-                    debug_print("¡Enemigo aparecido!", debug_mode=self.debug_mode)
                 self.enemy_spawn_timer = 0
             
             # Spawn de power-ups (menos frecuente con dificultad)
