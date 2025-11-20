@@ -183,6 +183,12 @@ KEY_ENTER = pygame.K_RETURN
 KEY_ESCAPE = pygame.K_ESCAPE
 KEY_P = pygame.K_p
 
+# WASD keys (alternative movement keys)
+KEY_W = pygame.K_w
+KEY_A = pygame.K_a
+KEY_S = pygame.K_s
+KEY_D = pygame.K_d
+
 # === CONFIGURACIÓN DE ESTADOS DEL JUEGO ===
 # Estos son los diferentes estados o pantallas del juego
 STATE_MENU = "menu"
