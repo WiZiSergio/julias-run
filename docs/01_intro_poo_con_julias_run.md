@@ -16,6 +16,24 @@ Al completar esta guía, serás capaz de:
 2. **Observa** los elementos: Julia, cachopos, cuchillos, power-ups
 3. **Piensa**: ¿Qué comportamientos tiene cada elemento?
 
+## Archivos de prueba incluidos
+
+He añadido al repositorio unos archivos de ejemplo que reproducen los ejercicios
+del documento para que puedas ejecutar y probar rápidamente:
+
+- `src/mi_enemigo.py` — Clase ejemplo `EnemigoEspecial` (ejercicio).
+- `tests/test_objetos.py` — Script que crea instancias de `Player` y `Obstacle` y muestra información básica.
+- `tests/test_mi_enemigo.py` — Demo visual corto que muestra `EnemigoEspecial` moviéndose.
+
+Cómo ejecutar los tests de ejemplo:
+
+```powershell
+python tests/test_objetos.py
+python tests/test_mi_enemigo.py
+```
+
+Nota: Los demos usan `pygame` y abrirán una ventana; cierra la ventana o espera el fin del demo.
+
 ## 📚 Parte 1: ¿Qué es una Clase? (20 minutos)
 
 ### 🏗️ Concepto: Clase = Plantilla/Molde
