@@ -51,6 +51,44 @@ from utils import (
 )
 from utils import get_input_state
 
+
+# Small floating score popup used when the player gains points
+class ScorePopup:
+    def __init__(self, x, y, points, color=YELLOW, life=50):
+        self.x = float(x)
+        self.y = float(y)
+        self.points = points
+        self.color = color
+        self.life = life
+        self.max_life = life
+        self.vy = -0.6  # float upward
+
+    def update(self):
+        # Move up slightly and fade
+        self.y += self.vy
+        # slow the upward movement a bit
+        self.vy *= 0.98
+        self.life -= 1
+        return self.life > 0
+
+    def draw(self, surface, font):
+        try:
+            text_surf = font.render(f"+{self.points}", True, self.color)
+            # Apply alpha based on remaining life
+            alpha = int(255 * (self.life / max(1, self.max_life)))
+            try:
+                text_surf.set_alpha(alpha)
+            except Exception:
+                pass
+            rect = text_surf.get_rect(center=(int(self.x), int(self.y)))
+            surface.blit(text_surf, rect)
+        except Exception:
+            # Fallback plain blit
+            try:
+                surface.blit(font.render(f"+{self.points}", True, self.color), (int(self.x), int(self.y)))
+            except Exception:
+                pass
+
 class JuliasRunGame:
     """
     Clase principal del juego Julia's Run.
@@ -156,6 +194,7 @@ class JuliasRunGame:
         self.enemies = []        # ✅ IMPLEMENTADO: Lista de enemigos
         self.explosions = []     # ✅ IMPLEMENTADO: Lista de explosiones
         self.particles = []      # ✅ IMPLEMENTADO: Lista de efectos de partículas
+        self.score_popups = []   # Popups de puntuación
         
         # Sistemas de juego
         self.knife_cooldown = CooldownTimer(KNIFE_COOLDOWN)
@@ -418,6 +457,10 @@ class JuliasRunGame:
                 self.obstacles.remove(obstacle)
                 points = self.combo_system.get_combo_bonus_points(POINTS_PER_OBSTACLE_AVOIDED)
                 self.player.score += points
+                try:
+                    self.score_popups.append(ScorePopup(obstacle.rect.centerx, obstacle.rect.centery, points))
+                except Exception:
+                    pass
                 debug_print(f"Obstáculo esquivado: +{points} puntos", debug_mode=self.debug_mode)
         
         # ✅ IMPLEMENTADO: Actualizar enemigos
@@ -427,6 +470,10 @@ class JuliasRunGame:
                 # Los enemigos dan más puntos por esquivar
                 points = self.combo_system.get_combo_bonus_points(POINTS_PER_OBSTACLE_AVOIDED * 2)
                 self.player.score += points
+                try:
+                    self.score_popups.append(ScorePopup(enemy.rect.centerx, enemy.rect.centery, points))
+                except Exception:
+                    pass
                 debug_print(f"Enemigo esquivado: +{points} puntos", debug_mode=self.debug_mode)
         
         # Actualizar cuchillos
@@ -504,6 +551,12 @@ class JuliasRunGame:
                     )
                     self.particles.append(explosion_particles)
                     
+                    # Mostrar popup de puntuación
+                    try:
+                        self.score_popups.append(ScorePopup(obstacle.rect.centerx, obstacle.rect.centery, points))
+                    except Exception:
+                        pass
+
                     debug_print(f"Obstáculo destruido: +{points} puntos (combo x{self.combo_system.combo_count})", 
                               debug_mode=self.debug_mode)
                     hit_something = True
@@ -525,6 +578,12 @@ class JuliasRunGame:
                         explosion = Explosion(enemy.rect.centerx, enemy.rect.centery, PURPLE)
                         self.explosions.append(explosion)
                         
+                        # Mostrar popup de puntuación
+                        try:
+                            self.score_popups.append(ScorePopup(enemy.rect.centerx, enemy.rect.centery, points, color=PURPLE))
+                        except Exception:
+                            pass
+
                         debug_print(f"Enemigo destruido: +{points} puntos!", debug_mode=self.debug_mode)
                         break
         
@@ -536,6 +595,12 @@ class JuliasRunGame:
                 # ✅ IMPLEMENTADO: Puntos con sistema de combos
                 points = self.combo_system.get_combo_bonus_points(POINTS_PER_POWERUP)
                 self.player.score += points
+                
+                # Mostrar popup de puntuación al recoger power-up
+                try:
+                    self.score_popups.append(ScorePopup(powerup.rect.centerx, powerup.rect.centery, points, color=powerup.color))
+                except Exception:
+                    pass
                 
                 # Activar efecto según el tipo
                 if powerup.type == 'vodka':
@@ -635,36 +700,34 @@ class JuliasRunGame:
     def draw_game_content(self, surface):
         """
         ✅ IMPLEMENTADO: Dibuja el contenido del juego en la superficie especificada.
-        
-        Esta función centraliza el dibujo del juego para poder reutilizarla
-        en diferentes contextos (juego normal, pausa con fondo, etc.).
         """
-        
         # Limpiar pantalla
         surface.fill(BLACK)
-        
+
         # Dibujar todas las entidades
         self.player.draw(surface)
-        
         for obstacle in self.obstacles:
             obstacle.draw(surface)
-        
         for enemy in self.enemies:
             enemy.draw(surface)
-        
         for knife in self.knives:
             knife.draw(surface)
-        
         for powerup in self.powerups:
             powerup.draw(surface)
-        
         # ✅ IMPLEMENTADO: Dibujar efectos visuales
         for explosion in self.explosions:
             explosion.draw(surface)
-        
         for particle_effect in self.particles:
             particle_effect.draw(surface)
-        
+
+        # Dibujar popups de puntuación
+        font = self.state_manager.font_medium if hasattr(self.state_manager, 'font_medium') else pygame.font.Font(None, 24)
+        for popup in self.score_popups[:]:
+            popup.draw(surface, font)
+
+        # Actualizar y limpiar popups
+        self.score_popups[:] = [p for p in self.score_popups if p.update()]
+
         # Dibujar HUD (Heads-Up Display)
         self.draw_hud(surface)
     
