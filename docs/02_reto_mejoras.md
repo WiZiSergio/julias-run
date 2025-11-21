@@ -43,7 +43,7 @@
 - **¿Documenta cambios?** (README de modificaciones)
 - **¿Explica decisiones?** (Justifica elecciones de diseño)
 
-## 🟢 Retos Nivel Principiante (1-2 puntos cada uno)
+## 🟢 Retos Nivel Principiante (2-3 puntos cada uno)
 
 ### 🎯 **Reto 1: Personalizar Configuración**
 **Tiempo estimado**: 30 minutos  
@@ -161,7 +161,7 @@ elif powerup.type == 'vida_extra':
 
 ---
 
-## 🟡 Retos Nivel Intermedio (2-3 puntos cada uno)
+## 🟡 Retos Nivel Intermedio (3-5 puntos cada uno)
 
 ### 🎯 **Reto 4: Refactorizar Clase Player**
 **Tiempo estimado**: 120 minutos  
@@ -303,7 +303,7 @@ elif powerup.type == 'vida_extra':
 
 ---
 
-## 🔴 Retos Nivel Avanzado (3-4 puntos cada uno)
+## 🔴 Retos Nivel Avanzado (4-6 puntos cada uno)
 
 ### 🎯 **Reto 7: Sistema de Animaciones**
 **Tiempo estimado**: 180 minutos  

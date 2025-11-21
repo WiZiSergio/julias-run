@@ -131,6 +131,9 @@ PLAYER_SPEED = int(5 * SPEED_MULTIPLIER)       # Velocidad normal de movimiento 
 PLAYER_LIVES = 3       # Número de vidas iniciales
 PLAYER_COLOR = BLUE    # Color del rectángulo del jugador (placeholder)
 
+# Límite máximo de vidas que el jugador puede tener (cap al recoger vida_extra)
+MAX_PLAYER_LIVES = 5
+
 # Posición inicial del jugador (centrado en la parte inferior)
 PLAYER_START_X = WINDOW_WIDTH // 2 - PLAYER_WIDTH // 2
 PLAYER_START_Y = WINDOW_HEIGHT - PLAYER_HEIGHT - 20
@@ -286,3 +289,15 @@ JOYSTICK_BUTTON_PAUSE = 7        # Botón por defecto para pausa (Start / Option
 MOUSE_CONTROL_ENABLED = False
 # Distancia mínima para considerar que el ratón está a la izquierda/derecha
 MOUSE_MOVE_THRESHOLD = 8
+
+# === CONFIGURACIÓN DE FONDO ===
+# 'cover' hace crop para llenar la ventana sin estirar
+# 'contain' ajusta la imagen al tamaño sin recortar (añade letterbox)
+BACKGROUND_MODE = 'cover'  # 'cover' | 'contain'
+
+# === CONFIGURACIÓN DE SONIDOS (RUTAS Y VOLUMEN POR DEFECTO) ===
+# Usar archivos reales .wav/.ogg cuando estén disponibles; por ahora placeholders
+SFX_VOLUME = 0.9
+SOUND_THROW = "assets/sounds/throw_placeholder.txt"
+SOUND_HIT = "assets/sounds/hit_placeholder.txt"
+SOUND_POWERUP = "assets/sounds/powerup_placeholder.txt"

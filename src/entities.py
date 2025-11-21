@@ -661,11 +661,20 @@ class PowerUp:
             self.symbol = "V"  # Símbolo para identificar visualmente
             # === CARGA DE SPRITE PARA VODKA ===
             sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.jpg")
-        else:  # 'tea'
+        elif powerup_type == 'tea':
             self.color = TEA_COLOR
             self.symbol = "T"
             # Para el té, usar el mismo sprite de vodka como placeholder
-            # (en un juego real tendrías un sprite específico para cada power-up)
+            sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.jpg")
+        elif powerup_type == 'vida_extra':
+            # Vida extra: color distintivo y símbolo
+            self.color = (255, 200, 50)  # Dorado
+            self.symbol = "+"
+            sprite_path = os.path.join("assets", "sprites", "vida_extra_placeholder.jpg")
+        else:
+            # Fallback a tea
+            self.color = TEA_COLOR
+            self.symbol = "?"
             sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.jpg")
         
         # Cargar sprite del power-up

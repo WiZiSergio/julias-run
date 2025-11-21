@@ -138,9 +138,19 @@ class JuliasRunGame:
                     pass
 
             iw, ih = img.get_width(), img.get_height()
-            # Escalar en modo 'cover' para evitar estirado: usar el mayor factor
+            # Escalar según BACKGROUND_MODE: 'cover' (rellena recortando) o 'contain' (ajusta sin recortar)
+            try:
+                mode = BACKGROUND_MODE
+            except Exception:
+                mode = 'cover'
+
             if iw > 0 and ih > 0:
-                scale = max(WINDOW_WIDTH / iw, WINDOW_HEIGHT / ih)
+                if mode == 'contain':
+                    scale = min(WINDOW_WIDTH / iw, WINDOW_HEIGHT / ih)
+                else:
+                    # cover por defecto
+                    scale = max(WINDOW_WIDTH / iw, WINDOW_HEIGHT / ih)
+
                 new_w = max(1, int(iw * scale))
                 new_h = max(1, int(ih * scale))
                 try:
@@ -148,7 +158,7 @@ class JuliasRunGame:
                 except Exception:
                     scaled = pygame.transform.scale(img, (new_w, new_h))
 
-                # Calcular offset para centrar la imagen (se recorta si es más grande)
+                # Calcular offset para centrar la imagen
                 off_x = (WINDOW_WIDTH - new_w) // 2
                 off_y = (WINDOW_HEIGHT - new_h) // 2
 
@@ -353,6 +363,17 @@ class JuliasRunGame:
             )
             # Añadir nuevos cuchillos a la lista
             self.knives.extend(new_knives)
+            # Reproducir SFX de lanzamiento para cada cuchillo creado
+            if new_knives:
+                try:
+                    from utils import play_sound
+                    for _ in new_knives:
+                        try:
+                            play_sound(SOUND_THROW, volume=SFX_VOLUME)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
             return continue_playing
         
         elif current_state == STATE_PAUSED:
@@ -548,6 +569,11 @@ class JuliasRunGame:
                 # ✅ IMPLEMENTADO: Efectos al recibir daño
                 if not self.player.take_damage():
                     # Game Over
+                    try:
+                        from utils import play_sound
+                        play_sound(SOUND_HIT, volume=SFX_VOLUME)
+                    except Exception:
+                        pass
                     return False
                 
                 # Resetear combo al recibir daño
@@ -599,6 +625,12 @@ class JuliasRunGame:
                     debug_print(f"Obstáculo destruido: +{points} puntos (combo x{self.combo_system.combo_count})", 
                               debug_mode=self.debug_mode)
                     hit_something = True
+                    # Reproducir SFX de impacto/destrucción
+                    try:
+                        from utils import play_sound
+                        play_sound(SOUND_HIT, volume=SFX_VOLUME)
+                    except Exception:
+                        pass
                     break
             
             # ✅ IMPLEMENTADO: Colisiones con enemigos (más difíciles de destruir)
@@ -624,6 +656,12 @@ class JuliasRunGame:
                             pass
 
                         debug_print(f"Enemigo destruido: +{points} puntos!", debug_mode=self.debug_mode)
+                        # Reproducir SFX al destruir enemigo
+                        try:
+                            from utils import play_sound
+                            play_sound(SOUND_HIT, volume=SFX_VOLUME)
+                        except Exception:
+                            pass
                         break
         
         # Detectar colisiones jugador-power-ups
@@ -646,6 +684,22 @@ class JuliasRunGame:
                     self.powerup_effects.activate_vodka_boost(self.player)
                 elif powerup.type == 'tea':
                     self.powerup_effects.activate_tea_shield(self.player)
+                elif powerup.type == 'vida_extra':
+                    # Dar una vida extra (usar cap desde settings)
+                    try:
+                        self.player.lives = min(MAX_PLAYER_LIVES, self.player.lives + 1)
+                    except Exception:
+                        try:
+                            self.player.lives += 1
+                        except Exception:
+                            pass
+
+                # Reproducir SFX de recolección
+                try:
+                    from utils import play_sound
+                    play_sound(SOUND_POWERUP, volume=SFX_VOLUME)
+                except Exception:
+                    pass
                 
                 # ✅ IMPLEMENTADO: Efectos visuales para power-ups
                 sparkle_particles = ParticleEffect(

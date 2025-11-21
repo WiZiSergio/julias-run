@@ -143,8 +143,14 @@ def get_random_powerup_type():
     Returns:
         str: 'vodka' o 'tea'
     """
-    
-    return random.choice(['vodka', 'tea'])
+    # Probabilidades ajustadas: vodka ~46%, tea ~47%, vida_extra ~7%
+    r = random.random()
+    if r < 0.46:
+        return 'vodka'
+    elif r < 0.93:
+        return 'tea'
+    else:
+        return 'vida_extra'
 
 
 def clamp(value, min_value, max_value):
