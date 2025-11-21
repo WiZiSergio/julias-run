@@ -16,8 +16,8 @@ class EnemigoEspecial:
     def __init__(self, player_x, difficulty_multiplier=1.0):
         # Aparecer ligeramente alejado del jugador en X
         start_x = max(10, min(WINDOW_WIDTH - 50, player_x + random.randint(-120, 120)))
-        start_y = -40
-        self.rect = pygame.Rect(start_x, start_y, 40, 40)
+        start_y = -50
+        self.rect = pygame.Rect(start_x, start_y, 60, 60)
         self.speed_x = random.choice([-2, 2])
         # Velocidad vertical escala con la dificultad
         self.speed_y = int(3 * max(1.0, difficulty_multiplier))

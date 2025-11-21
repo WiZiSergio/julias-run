@@ -123,6 +123,45 @@ class JuliasRunGame:
             self.mouse_control_enabled = MOUSE_CONTROL_ENABLED
         except Exception:
             self.mouse_control_enabled = False
+        
+        # Cargar imagen de fondo del juego (escalado preservando aspect ratio)
+        self.background_image = None
+        self.background_offset = (0, 0)
+        try:
+            img = pygame.image.load("assets/images/fondojuego.jpg")
+            try:
+                img = img.convert_alpha()
+            except Exception:
+                try:
+                    img = img.convert()
+                except Exception:
+                    pass
+
+            iw, ih = img.get_width(), img.get_height()
+            # Escalar en modo 'cover' para evitar estirado: usar el mayor factor
+            if iw > 0 and ih > 0:
+                scale = max(WINDOW_WIDTH / iw, WINDOW_HEIGHT / ih)
+                new_w = max(1, int(iw * scale))
+                new_h = max(1, int(ih * scale))
+                try:
+                    scaled = pygame.transform.smoothscale(img, (new_w, new_h))
+                except Exception:
+                    scaled = pygame.transform.scale(img, (new_w, new_h))
+
+                # Calcular offset para centrar la imagen (se recorta si es más grande)
+                off_x = (WINDOW_WIDTH - new_w) // 2
+                off_y = (WINDOW_HEIGHT - new_h) // 2
+
+                self.background_image = scaled
+                self.background_offset = (off_x, off_y)
+            else:
+                # Fallback: escala simple
+                self.background_image = pygame.transform.scale(img, (WINDOW_WIDTH, WINDOW_HEIGHT))
+                self.background_offset = (0, 0)
+        except Exception:
+            # Si no existe o falla, usaremos color sólido
+            self.background_image = None
+            self.background_offset = (0, 0)
 
     def _refresh_joysticks(self):
         """(Re)inicializa la lista de joysticks conectados."""
@@ -701,8 +740,12 @@ class JuliasRunGame:
         """
         ✅ IMPLEMENTADO: Dibuja el contenido del juego en la superficie especificada.
         """
-        # Limpiar pantalla
-        surface.fill(BLACK)
+        # Limpiar pantalla con fondo
+        if self.background_image:
+            # Blit con offset calculado al cargar la imagen para preservar aspect ratio
+            surface.blit(self.background_image, self.background_offset)
+        else:
+            surface.fill(BLACK)
 
         # Dibujar todas las entidades
         self.player.draw(surface)

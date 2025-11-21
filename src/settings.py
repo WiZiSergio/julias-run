@@ -43,6 +43,10 @@ import pygame
 # Escala de ventana respecto a la resolución del monitor (para no tapar la barra)
 WINDOW_SCALE = 0.95
 
+# Multiplicador global para ajustar la velocidad de todas las entidades
+# Úsalo para acelerar/desacelerar el ritmo del juego de forma centralizada
+SPEED_MULTIPLIER = 1.5
+
 def _detect_screen_size():
 	# 1) Windows via ctypes
 	try:
@@ -102,7 +106,7 @@ def _detect_screen_size():
 _det_w, _det_h = _detect_screen_size()
 WINDOW_WIDTH = max(640, int(_det_w * WINDOW_SCALE))      # Ancho de la ventana en píxeles
 WINDOW_HEIGHT = max(480, int(_det_h * WINDOW_SCALE))     # Alto de la ventana en píxeles
-FPS = 120               # Cuadros por segundo - ¡Prueba cambiar a 30 o 120!
+FPS = 300               # Cuadros por segundo - ¡Prueba cambiar a 30 o 120!
 
 # === COLORES (formato RGB) ===
 # 📚 Los colores se definen como tuplas de 3 valores (Red, Green, Blue)
@@ -123,7 +127,7 @@ BLOOD_RED = (170, 10, 20)
 # === CONFIGURACIÓN DEL JUGADOR ===
 PLAYER_WIDTH = 40      # Ancho del sprite del jugador
 PLAYER_HEIGHT = 60     # Alto del sprite del jugador
-PLAYER_SPEED = 5       # Velocidad normal de movimiento (píxeles por frame)
+PLAYER_SPEED = int(5 * SPEED_MULTIPLIER)       # Velocidad normal de movimiento (píxeles por frame)
 PLAYER_LIVES = 3       # Número de vidas iniciales
 PLAYER_COLOR = BLUE    # Color del rectángulo del jugador (placeholder)
 
@@ -134,21 +138,21 @@ PLAYER_START_Y = WINDOW_HEIGHT - PLAYER_HEIGHT - 20
 # === CONFIGURACIÓN DE CUCHILLOS ===
 KNIFE_WIDTH = 8        # Ancho del cuchillo
 KNIFE_HEIGHT = 20      # Alto del cuchillo
-KNIFE_SPEED = 10       # Velocidad del cuchillo (píxeles por frame)
+KNIFE_SPEED = int(10 * SPEED_MULTIPLIER)       # Velocidad del cuchillo (píxeles por frame)
 KNIFE_COLOR = YELLOW   # Color del cuchillo
 KNIFE_COOLDOWN = 30    # Tiempo de cooldown en frames (0.5 segundos a 60 FPS)
 
 # === CONFIGURACIÓN DE OBSTÁCULOS ===
 OBSTACLE_WIDTH = 30    # Ancho del obstáculo
 OBSTACLE_HEIGHT = 30   # Alto del obstáculo
-OBSTACLE_SPEED = 3     # Velocidad de caída (píxeles por frame)
+OBSTACLE_SPEED = int(3 * SPEED_MULTIPLIER)     # Velocidad de caída (píxeles por frame)
 OBSTACLE_COLOR = RED   # Color del obstáculo
 OBSTACLE_SPAWN_RATE = 60  # Frames entre spawn de obstáculos (1 segundo a 60 FPS)
 
 # === CONFIGURACIÓN DE POWER-UPS ===
 POWERUP_WIDTH = 25     # Ancho del power-up
 POWERUP_HEIGHT = 25    # Alto del power-up
-POWERUP_SPEED = 2      # Velocidad de caída (más lento que obstáculos)
+POWERUP_SPEED = int(2 * SPEED_MULTIPLIER)      # Velocidad de caída (más lento que obstáculos)
 POWERUP_SPAWN_RATE = 300  # Frames entre spawn de power-ups (5 segundos a 60 FPS)
 
 # Colores de power-ups

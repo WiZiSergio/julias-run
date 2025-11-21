@@ -8,16 +8,16 @@
 
 ## 📊 Sistema de Evaluación
 
-### 🏆 Rúbrica de Evaluación
+### 🏆 Rúbrica de Evaluación (ampliada)
 
-| **Aspecto** | **Excelente (3)** | **Bien (2)** | **Mejora (1)** | **Puntos** |
-|-------------|-------------------|---------------|----------------|------------|
-| **📚 Comprensión POO** | Identifica y explica correctamente clases, objetos, atributos y métodos. Entiende encapsulación. | Identifica conceptos básicos pero con algunas dudas menores. | Dificultad para distinguir clases de objetos o atributos de métodos. | **/3** |
-| **🔧 Refactorización** | Mejora código sin romper funcionalidad. Extrae métodos, mejora nombres, organiza lógicamente. | Hace mejoras menores que funcionan correctamente. | Cambios que rompen funcionalidad o no mejoran claridad. | **/3** |
-| **🎨 Creatividad** | Implementa features originales y bien integradas al juego existente. | Añade features simples pero funcionales. | Cambios cosméticos menores. | **/2** |
-| **📝 Documentación** | Documenta código claramente, explica decisiones, README de cambios. | Documentación básica pero suficiente. | Documentación mínima o confusa. | **/2** |
+| **Aspecto** | **Excelente** | **Bien** | **Mejora** | **Puntos** |
+|-------------|-------------:|--------:|----------:|----------:|
+| **📚 Comprensión POO** | Identifica y explica correctamente clases, objetos, atributos y métodos. Entiende encapsulación. | Identifica conceptos básicos pero con algunas dudas menores. | Dificultad para distinguir clases de objetos o atributos de métodos. | **/4** |
+| **🔧 Refactorización** | Mejora código sin romper funcionalidad. Extrae métodos, mejora nombres, organiza lógicamente. | Hace mejoras menores que funcionan correctamente. | Cambios que rompen funcionalidad o no mejoran claridad. | **/4** |
+| **🎨 Creatividad** | Implementa features originales y bien integradas al juego existente. | Añade features simples pero funcionales. | Cambios cosméticos menores. | **/3** |
+| **📝 Documentación** | Documenta código claramente, explica decisiones, README de cambios. | Documentación básica pero suficiente. | Documentación mínima o confusa. | **/4** |
 
-**Total: /10 puntos**
+**Total: /15 puntos**
 
 ### 🎯 Criterios de Evaluación Detallados
 
@@ -68,6 +68,35 @@
 **Entregable**: 
 - `settings_personalizado.py` con tus configuraciones
 - Documento explicando los cambios y su efecto en el gameplay
+
+---
+
+### 🎯 Reto 4: Añadir SFX básicos (Principiante)
+**Tiempo estimado**: 30-40 minutos  
+**Objetivo**: Integrar efectos de sonido simples y ajustar volúmenes
+
+**Tareas**:
+1. Añadir un par de archivos de sonido (hit/collect/throw) en `assets/sounds`
+2. Usar `utils.play_sound()` o `pygame.mixer` para reproducirlos en eventos clave
+3. Añadir controles de volumen en `settings` y documentación breve
+
+**Entregable**:
+- SFX mínimos integrados y ejemplos en el código
+- Breve explicación de cómo añadir más sonidos
+
+---
+
+### 🎯 Reto 5: Fondo adaptable (Principiante)
+**Tiempo estimado**: 45 minutos  
+**Objetivo**: Mejorar la carga del fondo para que no se estire y se centre (cover/contain)
+
+**Tareas**:
+1. Implementar escalado que preserve aspect ratio y opciones `cover`/`contain`
+2. Añadir toggle en `settings` para elegir modo
+3. Documentar la diferencia visual y el método elegido
+
+**Entregable**:
+- Implementación funcional en `main.py` y documentación breve
 
 ---
 
@@ -135,7 +164,7 @@ elif powerup.type == 'vida_extra':
 ## 🟡 Retos Nivel Intermedio (2-3 puntos cada uno)
 
 ### 🎯 **Reto 4: Refactorizar Clase Player**
-**Tiempo estimado**: 90 minutos  
+**Tiempo estimado**: 120 minutos  
 **Objetivo**: Aplicar principio de responsabilidad única
 
 **Problema identificado**: La clase `Player` es muy grande (>200 líneas) y maneja demasiadas responsabilidades.
@@ -188,7 +217,7 @@ elif powerup.type == 'vida_extra':
 ---
 
 ### 🎯 **Reto 5: Sistema de Niveles**
-**Tiempo estimado**: 120 minutos  
+**Tiempo estimado**: 150 minutos  
 **Objetivo**: Crear nuevas clases que interactúen con las existentes
 
 **Tareas**:
@@ -225,7 +254,7 @@ elif powerup.type == 'vida_extra':
 ---
 
 ### 🎯 **Reto 6: Tests Unitarios Básicos**
-**Tiempo estimado**: 90 minutos  
+**Tiempo estimado**: 120 minutos  
 **Objetivo**: Validar funcionalidad con tests automatizados
 
 **Tareas**:
@@ -277,7 +306,7 @@ elif powerup.type == 'vida_extra':
 ## 🔴 Retos Nivel Avanzado (3-4 puntos cada uno)
 
 ### 🎯 **Reto 7: Sistema de Animaciones**
-**Tiempo estimado**: 150 minutos  
+**Tiempo estimado**: 180 minutos  
 **Objetivo**: Implementar sistema avanzado de sprites animados
 
 **Tareas**:
@@ -318,7 +347,7 @@ elif powerup.type == 'vida_extra':
 ---
 
 ### 🎯 **Reto 8: Patrón Observer para Eventos**
-**Tiempo estimado**: 180 minutos  
+**Tiempo estimado**: 210 minutos  
 **Objetivo**: Implementar comunicación entre objetos sin acoplamiento
 
 **Problema**: Actualmente el código tiene acoplamiento fuerte entre clases. Cuando algo sucede (collision, power-up, etc.), múltiples partes del código necesitan reaccionar.
@@ -367,7 +396,7 @@ elif powerup.type == 'vida_extra':
 ---
 
 ### 🎯 **Reto 9: Arquitectura MVC**
-**Tiempo estimado**: 240 minutos  
+**Tiempo estimado**: 300 minutos  
 **Objetivo**: Separar lógica, presentación y control
 
 **Tareas**:
