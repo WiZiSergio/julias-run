@@ -365,9 +365,9 @@ class JuliasRunGame:
             
             # ✅ IMPLEMENTADO: Spawn de enemigos ocasional
             self.enemy_spawn_timer += 1
-            enemy_spawn_rate = max(300, 600 - int(self.current_difficulty * 50))
+            enemy_spawn_rate = max(100, 300 - int(self.current_difficulty * 50))
             if self.enemy_spawn_timer >= enemy_spawn_rate:
-                if len(self.enemies) < 2:  # Máximo 2 enemigos a la vez
+                if len(self.enemies) < 6:  # Máximo 6 enemigos a la vez
                     # Elegir entre enemigo estándar o EnemigoEspecial
                     if random.random() < 0.35:
                         # Spawn de enemigo especial (más raro)
