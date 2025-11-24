@@ -266,6 +266,10 @@ class JuliasRunGame:
         
         # ✅ IMPLEMENTADO: Inicializar tiempo de juego
         self.game_start_time = pygame.time.get_ticks() / 1000.0
+
+        # Indicador de subida de nivel (popup)
+        self.level_popup_timer = 0
+        self.level_popup_text = ""
         
         debug_print("Juego reiniciado. ¡Buena suerte!", debug_mode=self.debug_mode)
     
@@ -402,6 +406,13 @@ class JuliasRunGame:
         self.state_manager.update_state()
         
         current_state = self.state_manager.get_current_state()
+
+        # Actualizar temporizador de popup de nivel si existe
+        if getattr(self, 'level_popup_timer', 0) > 0:
+            try:
+                self.level_popup_timer -= 1
+            except Exception:
+                self.level_popup_timer = 0
         
         if current_state == STATE_MENU:
             self.menu_state.update()
@@ -435,6 +446,13 @@ class JuliasRunGame:
                 except Exception:
                     pass
                 debug_print(f"¡Nivel alcanzado: {self.current_level}!", debug_mode=True)
+                # Preparar popup visible al jugador (2 segundos aprox a 60FPS)
+                try:
+                    self.level_popup_text = f"NIVEL {self.current_level}"
+                    self.level_popup_timer = 120
+                except Exception:
+                    self.level_popup_text = ""
+                    self.level_popup_timer = 0
             
             # Spawn de nuevos obstáculos (con dificultad ajustada)
             adjusted_spawn_rate = max(30, OBSTACLE_SPAWN_RATE - int(self.current_difficulty * 10))
@@ -846,6 +864,35 @@ class JuliasRunGame:
 
         # Dibujar HUD (Heads-Up Display)
         self.draw_hud(surface)
+
+        # Dibujar popup de subida de nivel (centrado) si está activo
+        try:
+            if getattr(self, 'level_popup_timer', 0) > 0 and getattr(self, 'level_popup_text', ''):
+                alpha = int(255 * (self.level_popup_timer / 120)) if self.level_popup_timer <= 120 else 255
+                popup_surf = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+                # Fondo semi-transparente para el popup
+                try:
+                    popup_bg = pygame.Surface((WINDOW_WIDTH, 120), pygame.SRCALPHA)
+                    popup_bg.fill((0, 0, 0, 160))
+                    popup_surf.blit(popup_bg, (0, WINDOW_HEIGHT//2 - 60))
+                except Exception:
+                    pass
+
+                try:
+                    font = self.state_manager.font_large
+                except Exception:
+                    font = pygame.font.Font(None, FONT_SIZE_LARGE)
+
+                text_surf = font.render(self.level_popup_text, True, YELLOW)
+                try:
+                    text_surf.set_alpha(alpha)
+                except Exception:
+                    pass
+                text_rect = text_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2))
+                popup_surf.blit(text_surf, text_rect)
+                surface.blit(popup_surf, (0, 0))
+        except Exception:
+            pass
     
     def draw_hud(self, surface):
         """
