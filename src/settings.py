@@ -134,6 +134,14 @@ PLAYER_COLOR = BLUE    # Color del rectángulo del jugador (placeholder)
 # Límite máximo de vidas que el jugador puede tener (cap al recoger vida_extra)
 MAX_PLAYER_LIVES = 5
 
+# === SISTEMA DE NIVELES ===
+# Puntos necesarios para subir un nivel
+LEVEL_UP_SCORE = 100
+# Máximo nivel alcanzable
+MAX_LEVEL = 20
+# Bonus de dificultad por nivel (se suma a difficulty multiplier por nivel)
+LEVEL_DIFFICULTY_BONUS = 0.1
+
 # Posición inicial del jugador (centrado en la parte inferior)
 PLAYER_START_X = WINDOW_WIDTH // 2 - PLAYER_WIDTH // 2
 PLAYER_START_Y = WINDOW_HEIGHT - PLAYER_HEIGHT - 20

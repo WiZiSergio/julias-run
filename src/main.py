@@ -47,7 +47,7 @@ from game_states import GameStateManager, MenuState, PlayingState, GameOverState
 from utils import (
     load_best_score, save_best_score, should_spawn_obstacle, 
     should_spawn_powerup, get_random_powerup_type, get_difficulty_multiplier,
-    debug_print, update_play_statistics, get_fps_color
+    debug_print, update_play_statistics, get_fps_color, get_level_from_score
 )
 from utils import get_input_state
 
@@ -258,6 +258,8 @@ class JuliasRunGame:
         # ✅ IMPLEMENTADO: Variables para dificultad progresiva
         self.current_difficulty = 1.0
         self.last_difficulty_score = 0
+        # Nivel del jugador
+        self.current_level = 1
         
         # Cargar mejor puntuación
         self.best_score = load_best_score()
@@ -416,6 +418,23 @@ class JuliasRunGame:
                 self.last_difficulty_score = self.player.score
                 debug_print(f"¡Dificultad aumentada! Nivel: {self.current_difficulty:.1f}", 
                           debug_mode=True)  # Siempre mostrar este mensaje
+
+            # Sistema de niveles: calcular nivel desde la puntuación
+            try:
+                new_level = get_level_from_score(self.player.score)
+            except Exception:
+                new_level = 1
+
+            if new_level > getattr(self, 'current_level', 1):
+                # Subida de nivel: aplicar pequeño bonus de dificultad y notificar
+                prev = getattr(self, 'current_level', 1)
+                self.current_level = new_level
+                try:
+                    # Aumentar ligeramente la dificultad por nivel (configurable en settings)
+                    self.current_difficulty += (new_level - prev) * LEVEL_DIFFICULTY_BONUS
+                except Exception:
+                    pass
+                debug_print(f"¡Nivel alcanzado: {self.current_level}!", debug_mode=True)
             
             # Spawn de nuevos obstáculos (con dificultad ajustada)
             adjusted_spawn_rate = max(30, OBSTACLE_SPAWN_RATE - int(self.current_difficulty * 10))
@@ -883,6 +902,16 @@ class JuliasRunGame:
             diff_rect.right = WINDOW_WIDTH - 10
             diff_rect.bottom = WINDOW_HEIGHT - 10
             surface.blit(diff_surface, diff_rect)
+        # Nivel visible en HUD
+        try:
+            level_text = f"Nivel: {get_level_from_score(self.player.score)}"
+            level_surface = self.state_manager.font_small.render(level_text, True, WHITE)
+            level_rect = level_surface.get_rect()
+            level_rect.right = WINDOW_WIDTH - 10
+            level_rect.bottom = WINDOW_HEIGHT - 30
+            surface.blit(level_surface, level_rect)
+        except Exception:
+            pass
     
     def draw_debug_info(self):
         """

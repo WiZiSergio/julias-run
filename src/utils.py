@@ -22,6 +22,19 @@ import random
 import os
 from settings import *
 
+def get_level_from_score(score):
+    """
+    Calcula el nivel actual basado en la puntuación.
+
+    Nivel 1 = score 0..(LEVEL_UP_SCORE-1), Nivel 2 a partir de LEVEL_UP_SCORE, etc.
+    Devuelve un entero entre 1 y MAX_LEVEL.
+    """
+    try:
+        lvl = 1 + (score // LEVEL_UP_SCORE)
+        return int(min(MAX_LEVEL, max(1, lvl)))
+    except Exception:
+        return 1
+
 def load_best_score():
     """
     Carga la mejor puntuación desde el archivo JSON.
