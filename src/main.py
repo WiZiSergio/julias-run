@@ -47,7 +47,7 @@ from game_states import GameStateManager, MenuState, PlayingState, GameOverState
 from utils import (
     load_best_score, save_best_score, should_spawn_obstacle, 
     should_spawn_powerup, get_random_powerup_type, get_difficulty_multiplier,
-    debug_print, update_play_statistics, get_fps_color, get_level_from_score
+    debug_print, update_play_statistics, get_fps_color, get_level_from_score, get_level_progress
 )
 from utils import get_input_state
 
@@ -931,7 +931,34 @@ class JuliasRunGame:
             pygame.draw.rect(surface, TEA_COLOR, bg_rect, 1)
             
             surface.blit(shield_text, shield_rect)
-        
+
+        # Nivel: texto y barra de progreso (top-left)
+        try:
+            lvl, pct = get_level_progress(self.player.score)
+            lvl_label = self.state_manager.font_small.render(f"Nivel: {lvl} ({pct:.0f}%)", True, WHITE)
+            lvl_x = 10
+            lvl_y = 110
+            surface.blit(lvl_label, (lvl_x, lvl_y))
+
+            # Barra de progreso justo debajo del texto
+            bar_w = 140
+            bar_h = 10
+            bar_x = lvl_x
+            bar_y = lvl_y + lvl_label.get_height() + 6
+
+            # Fondo y borde
+            pygame.draw.rect(surface, BLACK, (bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4))
+            pygame.draw.rect(surface, WHITE, (bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), 1)
+
+            # Barra verde de progreso
+            fill_w = int((pct / 100.0) * bar_w)
+            pygame.draw.rect(surface, GREEN, (bar_x, bar_y, fill_w, bar_h))
+            # Resto de la barra en gris
+            if fill_w < bar_w:
+                pygame.draw.rect(surface, (40, 40, 40), (bar_x + fill_w, bar_y, bar_w - fill_w, bar_h))
+        except Exception:
+            pass
+
         # ✅ IMPLEMENTADO: Barra de cooldown visual
         self.knife_cooldown.draw_cooldown_bar(surface)
         
@@ -951,7 +978,8 @@ class JuliasRunGame:
             surface.blit(diff_surface, diff_rect)
         # Nivel visible en HUD
         try:
-            level_text = f"Nivel: {get_level_from_score(self.player.score)}"
+            lvl, pct = get_level_progress(self.player.score)
+            level_text = f"Nivel: {lvl} ({pct:.0f}%)"
             level_surface = self.state_manager.font_small.render(level_text, True, WHITE)
             level_rect = level_surface.get_rect()
             level_rect.right = WINDOW_WIDTH - 10

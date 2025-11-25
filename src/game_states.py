@@ -641,6 +641,18 @@ class PlayingState:
         # ✅ IMPLEMENTADO: Efectos activos
         effects.draw_active_effects(screen, self.state_manager.font_small)
 
+        # Nivel y progreso hacia el siguiente nivel (top-right)
+        try:
+            from utils import get_level_progress
+            lvl, pct = get_level_progress(player.score)
+            lvl_text = f"Nivel: {lvl} ({pct:.0f}%)"
+            lvl_surf = self.state_manager.font_small.render(lvl_text, True, WHITE)
+            lvl_rect = lvl_surf.get_rect()
+            lvl_rect.right = WINDOW_WIDTH - 10
+            lvl_rect.top = 60
+            screen.blit(lvl_surf, lvl_rect)
+        except Exception:
+            pass
 
 class GameOverState:
     """

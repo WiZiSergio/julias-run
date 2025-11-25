@@ -35,6 +35,34 @@ def get_level_from_score(score):
     except Exception:
         return 1
 
+def get_level_progress(score):
+    """
+    Devuelve el nivel y el porcentaje completado hacia el siguiente nivel.
+
+    Returns:
+        tuple: (level:int, percent:float)
+
+    Para `MAX_LEVEL` devuelve 100.0%.
+    """
+    try:
+        level = get_level_from_score(score)
+        # Si ya está en el nivel máximo, mostrar 100%
+        if level >= MAX_LEVEL:
+            return int(level), 100.0
+
+        # Puntos dentro del nivel actual
+        base = (level - 1) * LEVEL_UP_SCORE
+        progress = score - base
+        pct = (progress / float(LEVEL_UP_SCORE)) * 100.0
+        # Clamp por seguridad
+        if pct < 0.0:
+            pct = 0.0
+        if pct > 100.0:
+            pct = 100.0
+        return int(level), pct
+    except Exception:
+        return 1, 0.0
+
 def load_best_score():
     """
     Carga la mejor puntuación desde el archivo JSON.
