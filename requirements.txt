@@ -1,4 +1,2 @@
 pygame==2.*
-os
-random
 pytest

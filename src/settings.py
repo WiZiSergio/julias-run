@@ -41,11 +41,24 @@ import pygame
 # 4. Fallback a valores por defecto
 
 # Escala de ventana respecto a la resolución del monitor (para no tapar la barra)
+# NOTE: we prefer manual window size to avoid importing tkinter/pygame at import time
+# and to keep behaviour predictable in CI and headless environments.
 WINDOW_SCALE = 0.95
+
+# === MANUAL WINDOW SIZE (preferred) ===
+# Set MANUAL_WINDOW_SIZE = True to force a fixed window size and skip auto-detection.
+# Change MANUAL_WINDOW_WIDTH / MANUAL_WINDOW_HEIGHT to your preferred values.
+MANUAL_WINDOW_SIZE = True
+MANUAL_WINDOW_WIDTH = 800
+MANUAL_WINDOW_HEIGHT = 600
 
 # Multiplicador global para ajustar la velocidad de todas las entidades
 # Úsalo para acelerar/desacelerar el ritmo del juego de forma centralizada
 SPEED_MULTIPLIER = 1.5
+
+# Opcional: multiplicador específico para la velocidad de caída de entidades
+# Permite hacer que 'caigan más lentas' sin afectar otras velocidades (player/knife)
+FALL_SPEED_MULTIPLIER = 0.6  # valores menores -> caída más lenta (0.6 = 60% velocidad original)
 
 def _detect_screen_size():
 	# 1) Windows via ctypes
@@ -102,10 +115,16 @@ def _detect_screen_size():
 	return 800, 600
 
 
-# Detect and scale
-_det_w, _det_h = _detect_screen_size()
-WINDOW_WIDTH = max(640, int(_det_w * WINDOW_SCALE))      # Ancho de la ventana en píxeles
-WINDOW_HEIGHT = max(480, int(_det_h * WINDOW_SCALE))     # Alto de la ventana en píxeles
+# Detect and scale (or use manual settings)
+if MANUAL_WINDOW_SIZE:
+	# Use explicit manual values (fast, no imports, suitable for headless/CI)
+	WINDOW_WIDTH = max(640, int(MANUAL_WINDOW_WIDTH))      # Ancho de la ventana en píxeles
+	WINDOW_HEIGHT = max(480, int(MANUAL_WINDOW_HEIGHT))     # Alto de la ventana en píxeles
+else:
+	# Try to detect screen size and scale it down slightly so window doesn't cover bars
+	_det_w, _det_h = _detect_screen_size()
+	WINDOW_WIDTH = max(640, int(_det_w * WINDOW_SCALE))      # Ancho de la ventana en píxeles
+	WINDOW_HEIGHT = max(480, int(_det_h * WINDOW_SCALE))     # Alto de la ventana en píxeles
 FPS = 300               # Cuadros por segundo - ¡Prueba cambiar a 30 o 120!
 
 # === COLORES (formato RGB) ===
@@ -156,14 +175,14 @@ KNIFE_COOLDOWN = 30    # Tiempo de cooldown en frames (0.5 segundos a 60 FPS)
 # === CONFIGURACIÓN DE OBSTÁCULOS ===
 OBSTACLE_WIDTH = 30    # Ancho del obstáculo
 OBSTACLE_HEIGHT = 30   # Alto del obstáculo
-OBSTACLE_SPEED = int(3 * SPEED_MULTIPLIER)     # Velocidad de caída (píxeles por frame)
+OBSTACLE_SPEED = max(1, int(3 * SPEED_MULTIPLIER * FALL_SPEED_MULTIPLIER))     # Velocidad de caída (píxeles por frame)
 OBSTACLE_COLOR = RED   # Color del obstáculo
 OBSTACLE_SPAWN_RATE = 60  # Frames entre spawn de obstáculos (1 segundo a 60 FPS)
 
 # === CONFIGURACIÓN DE POWER-UPS ===
 POWERUP_WIDTH = 25     # Ancho del power-up
 POWERUP_HEIGHT = 25    # Alto del power-up
-POWERUP_SPEED = int(2 * SPEED_MULTIPLIER)      # Velocidad de caída (más lento que obstáculos)
+POWERUP_SPEED = max(1, int(2 * SPEED_MULTIPLIER * FALL_SPEED_MULTIPLIER))      # Velocidad de caída (más lento que obstáculos)
 POWERUP_SPAWN_RATE = 300  # Frames entre spawn de power-ups (5 segundos a 60 FPS)
 
 # Colores de power-ups

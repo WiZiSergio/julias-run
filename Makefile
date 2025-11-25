@@ -17,7 +17,6 @@ DOCS_DIR = docs
 run: ## 🎮 Ejecutar el juego directamente (sin venv)
 	@echo "🚀 Iniciando Julia's Run..."
 	@echo "💡 Presiona ESC para salir del juego"
-	@rem Ejecutar como script para mantener imports relativos actuales
 	$(PYTHON) $(SRC_DIR)/main.py
 
 .PHONY: run-with-joy-check
