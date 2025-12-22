@@ -63,7 +63,7 @@ src/
 Una vez entiendas la estructura:
 1. **Modifica parámetros** en `settings.py`
 	- Ahora puedes forzar un tamaño de ventana manual desde `settings.py` estableciendo `MANUAL_WINDOW_SIZE = True` y ajustando `MANUAL_WINDOW_WIDTH` / `MANUAL_WINDOW_HEIGHT`.
-	- Para hacer que las entidades caigan más lentas (obstáculos y power-ups) edita `FALL_SPEED_MULTIPLIER` en `settings.py`. Valores entre 0.0 y 1.0 reducen la velocidad; por ejemplo `0.6` hace que caigan al ~60% de la velocidad base.
+	- Para hacer que las entidades caigan más lentas (obstáculos y power-ups) edita `FALL_SPEED_MULTIPLIER` en `settings.py`. Valores entre 0.0 y 1.0 reducen la velocidad; por ejemplo `0.4` hace que caigan al ~40% de la velocidad base.
 2. **Añade features simples** siguiendo patrones existentes
 3. **Refactoriza código** para mejorar claridad
 4. **Documenta** tus cambios y aprendizajes

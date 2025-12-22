@@ -54,11 +54,11 @@ MANUAL_WINDOW_HEIGHT = 600
 
 # Multiplicador global para ajustar la velocidad de todas las entidades
 # Úsalo para acelerar/desacelerar el ritmo del juego de forma centralizada
-SPEED_MULTIPLIER = 1.5
+SPEED_MULTIPLIER = 0.5
 
 # Opcional: multiplicador específico para la velocidad de caída de entidades
 # Permite hacer que 'caigan más lentas' sin afectar otras velocidades (player/knife)
-FALL_SPEED_MULTIPLIER = 0.6  # valores menores -> caída más lenta (0.6 = 60% velocidad original)
+FALL_SPEED_MULTIPLIER = 0.4  # valores menores -> caída más lenta (0.4 = 40% velocidad original)
 
 def _detect_screen_size():
 	# 1) Windows via ctypes
@@ -125,7 +125,7 @@ else:
 	_det_w, _det_h = _detect_screen_size()
 	WINDOW_WIDTH = max(640, int(_det_w * WINDOW_SCALE))      # Ancho de la ventana en píxeles
 	WINDOW_HEIGHT = max(480, int(_det_h * WINDOW_SCALE))     # Alto de la ventana en píxeles
-FPS = 300               # Cuadros por segundo - ¡Prueba cambiar a 30 o 120!
+FPS = 120          # Cuadros por segundo - ¡Prueba cambiar a 30 o 120!
 
 # === COLORES (formato RGB) ===
 # 📚 Los colores se definen como tuplas de 3 valores (Red, Green, Blue)

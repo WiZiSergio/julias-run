@@ -41,7 +41,10 @@ from src.utils import (
     should_spawn_obstacle, should_spawn_powerup, is_point_in_rect,
     lerp, create_random_color, load_best_score, save_best_score
 )
-from src.settings import OBSTACLE_SPAWN_RATE, POWERUP_SPAWN_RATE
+from src.settings import (
+    OBSTACLE_SPAWN_RATE, POWERUP_SPAWN_RATE,
+    FALL_SPEED_MULTIPLIER, OBSTACLE_SPEED, POWERUP_SPEED, SPEED_MULTIPLIER
+)
 
 
 class TestUtilityFunctions(unittest.TestCase):
@@ -184,6 +187,23 @@ class TestUtilityFunctions(unittest.TestCase):
                 self.assertIsInstance(component, int, "Componentes de color deben ser enteros")
                 self.assertGreaterEqual(component, 0, "Componentes de color deben ser >= 0")
                 self.assertLessEqual(component, 255, "Componentes de color deben ser <= 255")
+
+    def test_fall_speed_multiplier_default(self):
+        """Verifica que FALL_SPEED_MULTIPLIER tenga el valor esperado y que las
+        velocidades de caída coincidan con el cálculo."""
+
+        # Default chosen in settings.py should be 0.4 (slower fall)
+        self.assertAlmostEqual(FALL_SPEED_MULTIPLIER, 0.4, delta=1e-6,
+                               msg="FALL_SPEED_MULTIPLIER debería ser 0.4 por defecto")
+
+        # Las velocidades actuales deben respetar la fórmula
+        expected_obstacle_speed = max(1, int(3 * SPEED_MULTIPLIER * FALL_SPEED_MULTIPLIER))
+        expected_powerup_speed = max(1, int(2 * SPEED_MULTIPLIER * FALL_SPEED_MULTIPLIER))
+
+        self.assertEqual(OBSTACLE_SPEED, expected_obstacle_speed,
+                         "OBSTACLE_SPEED no coincide con el cálculo esperado")
+        self.assertEqual(POWERUP_SPEED, expected_powerup_speed,
+                         "POWERUP_SPEED no coincide con el cálculo esperado")
     
     # TODO: Tests para funciones de archivos JSON
     # Estos tests son más complejos porque requieren mocking de archivos
